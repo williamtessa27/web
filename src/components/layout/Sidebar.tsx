@@ -1,0 +1,363 @@
+import { useState, useCallback } from 'react';
+import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import clsx from 'clsx';
+import {
+  HiOutlineHome,
+  HiOutlineUserGroup,
+  HiOutlineUsers,
+  HiOutlineUserPlus,
+  HiOutlineBanknotes,
+  HiOutlineCube,
+  HiOutlineDocumentText,
+  HiOutlineMapPin,
+  HiOutlineTruck,
+  HiOutlineCurrencyDollar,
+  HiOutlineBuildingOffice2,
+  HiOutlineCog6Tooth,
+  HiOutlineLockClosed,
+  HiOutlineClipboardDocumentList,
+  HiOutlineChevronDown,
+  HiOutlineChevronRight,
+  HiOutlineArrowDownTray,
+  HiOutlineCreditCard,
+  HiOutlineShieldCheck,
+} from 'react-icons/hi2';
+import { PanelRightOpen, PanelLeftOpen } from 'lucide-react';
+import { useAuthStore } from '@/core/store/auth.store';
+import { AppRoutes } from '@/config/routes.config';
+import { isSuperAdmin, isAdmin, isGestionnaire } from '@/config/permissions';
+
+interface NavItem {
+  label: string;
+  to: string;
+  icon: React.ReactNode;
+}
+
+interface NavGroup {
+  id: string;
+  labelKey: string;
+  items: NavItem[];
+}
+
+const SIDEBAR_STORAGE_KEY = 'collect_app_sidebar_collapsed';
+const SIDEBAR_GROUPS_KEY = 'collect_app_sidebar_groups';
+
+export function getSidebarCollapsedDefault(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setSidebarCollapsedInStorage(collapsed: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? 'true' : 'false');
+  } catch {
+    /* ignore */
+  }
+}
+
+function getSidebarGroupsDefault(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_GROUPS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as Record<string, boolean>;
+      if (typeof parsed === 'object' && parsed !== null) return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return { operations: true, organisation: true, produitsServices: true, finance: true, clotureControle: true, parametres: true, plateforme: true };
+}
+
+export function setSidebarGroupsInStorage(groups: Record<string, boolean>): void {
+  try {
+    localStorage.setItem(SIDEBAR_GROUPS_KEY, JSON.stringify(groups));
+  } catch {
+    /* ignore */
+  }
+}
+
+interface SidebarProps {
+  mobile?: boolean;
+  onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
+  const { t } = useTranslation();
+  const { user, entreprise } = useAuthStore();
+  const role = user?.role;
+  const logoUrl = entreprise?.logoUrl;
+
+  const [groupsOpen, setGroupsOpen] = useState<Record<string, boolean>>(getSidebarGroupsDefault);
+
+  const toggleGroup = useCallback((id: string) => {
+    setGroupsOpen((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      setSidebarGroupsInStorage(next);
+      return next;
+    });
+  }, []);
+
+  const groups: NavGroup[] = [];
+
+  // Opérations terrain
+  const opsItems: NavItem[] = [
+    { label: t('sidebar.clients'), to: AppRoutes.CLIENTS, icon: <HiOutlineUsers className="h-5 w-5" /> },
+    { label: t('sidebar.collectes'), to: AppRoutes.COLLECTES, icon: <HiOutlineBanknotes className="h-5 w-5" /> },
+  ];
+  if (isAdmin(role) || isGestionnaire(role)) {
+    opsItems.push({ label: t('sidebar.tournees'), to: AppRoutes.TOURNEES, icon: <HiOutlineTruck className="h-5 w-5" /> });
+  }
+  groups.push({ id: 'operations', labelKey: 'sidebar.groups.operations', items: opsItems });
+
+  // Organisation
+  const orgItems: NavItem[] = [];
+  if (isAdmin(role)) orgItems.push({ label: t('sidebar.utilisateurs'), to: AppRoutes.UTILISATEURS, icon: <HiOutlineUserPlus className="h-5 w-5" /> });
+  if (isAdmin(role) || isGestionnaire(role)) {
+    orgItems.push(
+      { label: t('sidebar.collecteurs'), to: AppRoutes.COLLECTEURS, icon: <HiOutlineUserGroup className="h-5 w-5" /> },
+      { label: t('sidebar.zones'), to: AppRoutes.ZONES, icon: <HiOutlineMapPin className="h-5 w-5" /> },
+      { label: t('sidebar.agences'), to: AppRoutes.AGENCES, icon: <HiOutlineBuildingOffice2 className="h-5 w-5" /> },
+    );
+  }
+  if (orgItems.length > 0) {
+    groups.push({ id: 'organisation', labelKey: 'sidebar.groups.organisation', items: orgItems });
+  }
+
+  // Produits & Services
+  const prodItems: NavItem[] = [];
+  if (isAdmin(role) || isGestionnaire(role)) {
+    prodItems.push(
+      { label: t('sidebar.produitsMicrofinance'), to: AppRoutes.PRODUITS_MICROFINANCE, icon: <HiOutlineCube className="h-5 w-5" /> },
+      { label: t('sidebar.plansCollecte'), to: AppRoutes.PLANS_COLLECTE, icon: <HiOutlineCube className="h-5 w-5" /> },
+      { label: t('sidebar.souscriptions'), to: AppRoutes.SOUSCRIPTIONS, icon: <HiOutlineDocumentText className="h-5 w-5" /> },
+    );
+  }
+  if (prodItems.length > 0) {
+    groups.push({ id: 'produitsServices', labelKey: 'sidebar.groups.produitsServices', items: prodItems });
+  }
+
+  // Finance
+  const finItems: NavItem[] = [];
+  if (isAdmin(role) || isGestionnaire(role)) {
+    finItems.push(
+      { label: t('sidebar.comptabilite'), to: AppRoutes.COMPTABILITE, icon: <HiOutlineDocumentText className="h-5 w-5" /> },
+      { label: t('sidebar.commissions'), to: AppRoutes.COMMISSIONS, icon: <HiOutlineCurrencyDollar className="h-5 w-5" /> },
+      { label: t('sidebar.demandesRetrait'), to: AppRoutes.DEMANDES_RETRAIT, icon: <HiOutlineArrowDownTray className="h-5 w-5" /> },
+      { label: t('sidebar.credit'), to: AppRoutes.CREDIT, icon: <HiOutlineCreditCard className="h-5 w-5" /> },
+    );
+  }
+  if (finItems.length > 0) {
+    groups.push({ id: 'finance', labelKey: 'sidebar.groups.finance', items: finItems });
+  }
+
+  // Clôture & Contrôle
+  const clotureItems: NavItem[] = [];
+  if (isAdmin(role) || isGestionnaire(role)) {
+    clotureItems.push({ label: t('sidebar.cloture'), to: AppRoutes.CLOTURE, icon: <HiOutlineLockClosed className="h-5 w-5" /> });
+  }
+  if (isAdmin(role)) {
+    clotureItems.push({ label: t('sidebar.audit'), to: AppRoutes.AUDIT, icon: <HiOutlineClipboardDocumentList className="h-5 w-5" /> });
+  }
+  if (clotureItems.length > 0) {
+    groups.push({ id: 'clotureControle', labelKey: 'sidebar.groups.clotureControle', items: clotureItems });
+  }
+
+  // Paramètres
+  if (isAdmin(role)) {
+    groups.push({
+      id: 'parametres',
+      labelKey: 'sidebar.groups.parametres',
+      items: [
+        { label: t('sidebar.parametres'), to: AppRoutes.PARAMETRES, icon: <HiOutlineCog6Tooth className="h-5 w-5" /> },
+        { label: t('sidebar.garanties'), to: AppRoutes.GARANTIES, icon: <HiOutlineShieldCheck className="h-5 w-5" /> },
+        { label: t('sidebar.permissions'), to: AppRoutes.PERMISSIONS, icon: <HiOutlineLockClosed className="h-5 w-5" /> },
+      ],
+    });
+  }
+
+  // Administration plateforme (Super Admin)
+  if (isSuperAdmin(role)) {
+    groups.push({
+      id: 'plateforme',
+      labelKey: 'sidebar.groups.plateforme',
+      items: [
+        { label: t('sidebar.dashboardPlatform'), to: AppRoutes.SUPER_ADMIN_DASHBOARD, icon: <HiOutlineHome className="h-5 w-5" /> },
+        { label: t('sidebar.entreprises'), to: AppRoutes.SUPER_ADMIN_ENTREPRISES, icon: <HiOutlineBuildingOffice2 className="h-5 w-5" /> },
+      ],
+    });
+  }
+
+  const isCollapsed = !mobile && collapsed;
+  const showToggle = !mobile && onToggleCollapse != null;
+
+  const linkBase = 'rounded-lg text-sm font-medium transition-colors';
+  const linkActive = 'bg-primary-50 text-primary-700';
+  const linkInactive = 'text-gray-600 hover:bg-gray-50 hover:text-gray-900';
+
+  return (
+    <aside
+      className={clsx(
+        'flex flex-col h-full bg-white border-r border-gray-200 transition-[width] duration-400 ease-in-out',
+        mobile ? 'w-72' : isCollapsed ? 'w-16' : 'w-64',
+      )}
+    >
+      {/* Logo entreprise ou défaut + bouton rétracter (en haut) */}
+      <div
+        className={clsx(
+          'flex items-center border-b border-gray-100 shrink-0',
+          isCollapsed ? 'justify-center px-0 py-4' : 'gap-3 px-6 py-5',
+        )}
+      >
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={entreprise?.nom ?? 'Logo'}
+            className={clsx(
+              'object-contain shrink-0 bg-white rounded',
+              isCollapsed ? 'h-10 w-10' : 'h-12 max-w-[8rem]',
+            )}
+          />
+        ) : (
+          <img
+            src="/logo_collect.png"
+            alt="Collect"
+            className={clsx('object-contain shrink-0', isCollapsed ? 'h-10 w-10' : 'h-12')}
+          />
+        )}
+        {!isCollapsed && (
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold text-gray-900 leading-tight truncate">
+              {entreprise?.nom ?? 'Kimifinance'}
+            </h1>
+          </div>
+        )}
+        {showToggle && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors shrink-0"
+            title={isCollapsed ? t('sidebar.expandMenu') : t('sidebar.collapseMenu')}
+          >
+            {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+          </button>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <nav className={clsx('flex-1 overflow-y-auto py-4 space-y-1', isCollapsed ? 'px-2' : 'px-3')}>
+        {/* Dashboard en tête */}
+        <NavLink
+          to={AppRoutes.DASHBOARD}
+          onClick={onClose}
+          title={isCollapsed ? t('sidebar.dashboard') : undefined}
+          className={({ isActive }) =>
+            clsx(
+              linkBase,
+              'flex items-center',
+              isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
+              isActive ? linkActive : linkInactive,
+            )
+          }
+        >
+          <HiOutlineHome className="h-5 w-5" />
+          {!isCollapsed && <span>{t('sidebar.dashboard')}</span>}
+        </NavLink>
+
+        {/* Groupes repliables (masqués en mode collapsed -> liens plats) */}
+        {isCollapsed ? (
+          groups.flatMap((g) =>
+            g.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={onClose}
+                title={item.label}
+                className={({ isActive }) =>
+                  clsx(linkBase, 'flex items-center justify-center p-2.5', isActive ? linkActive : linkInactive)
+                }
+              >
+                {item.icon}
+              </NavLink>
+            )),
+          )
+        ) : (
+          groups.map((group) => {
+            const isOpen = groupsOpen[group.id] ?? true;
+            return (
+              <div key={group.id} className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  className={clsx(
+                    'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900',
+                  )}
+                >
+                  <span className="truncate">{t(group.labelKey)}</span>
+                  <span className="shrink-0 text-gray-400">
+                    {isOpen ? (
+                      <HiOutlineChevronDown className="h-4 w-4" />
+                    ) : (
+                      <HiOutlineChevronRight className="h-4 w-4" />
+                    )}
+                  </span>
+                </button>
+                {isOpen && (
+                  <div className="ml-2 mt-0.5 space-y-0.5 border-l border-gray-200 pl-2">
+                    {group.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        onClick={onClose}
+                        className={({ isActive }) =>
+                          clsx(linkBase, 'flex items-center gap-3 py-2 pl-2', isActive ? linkActive : linkInactive)
+                        }
+                      >
+                        {item.icon}
+                        <span className="truncate">{item.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </nav>
+
+      {/* User */}
+      {user && (
+        <div
+          className={clsx(
+            'border-t border-gray-100 shrink-0',
+            isCollapsed ? 'flex justify-center px-0 py-3' : 'px-4 py-4',
+          )}
+        >
+          <div className={clsx('flex items-center', isCollapsed ? 'justify-center' : 'gap-3')}>
+            <div
+              className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden"
+              title={isCollapsed ? `${user.nom} (${user.role})` : undefined}
+            >
+              {user.photoProfilUrl ? (
+                <img src={user.photoProfilUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                user.nom.charAt(0)
+              )}
+            </div>
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{user.nom}</p>
+                <p className="text-xs text-gray-500 truncate">{user.role}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}

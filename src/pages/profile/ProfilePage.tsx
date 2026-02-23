@@ -1,0 +1,221 @@
+import { useForm, Controller } from 'react-hook-form';
+import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+import { useAuthStore } from '@/core/store/auth.store';
+import { utilisateurApi } from '@/core/api';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import PhoneInput from '@/components/ui/PhoneInput';
+import Card from '@/components/ui/Card';
+import ImageUpload from '@/components/ui/ImageUpload';
+import { RoleUtilisateur } from '@/types';
+import type { Utilisateur } from '@/types';
+
+const roleLabels: Record<string, string> = {
+  [RoleUtilisateur.SuperAdmin]: 'Super Admin',
+  [RoleUtilisateur.AdminEntreprise]: 'Admin Entreprise',
+  [RoleUtilisateur.Directeur]: 'Directeur',
+  [RoleUtilisateur.ChefAgence]: 'Chef d\'agence',
+  [RoleUtilisateur.Gestionnaire]: 'Gestionnaire',
+  [RoleUtilisateur.GestionnaireCredit]: 'Gestionnaire crédit',
+  [RoleUtilisateur.Caissier]: 'Caissier',
+  [RoleUtilisateur.Collecteur]: 'Collecteur',
+  [RoleUtilisateur.Auditeur]: 'Auditeur',
+  [RoleUtilisateur.Client]: 'Client',
+};
+
+type ProfileForm = Pick<
+  Utilisateur,
+  'nom' | 'prenom' | 'telephone' | 'adresse' | 'ville' | 'pays'
+> & { email?: string };
+
+export default function ProfilePage() {
+  const { user, setUser } = useAuthStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ProfileForm>();
+
+  useEffect(() => {
+    if (user) {
+      reset({
+        nom: user.nom ?? '',
+        prenom: user.prenom ?? '',
+        email: user.email ?? '',
+        telephone: user.telephone ?? '',
+        adresse: user.adresse ?? '',
+        ville: user.ville ?? '',
+        pays: user.pays ?? '',
+      });
+    }
+  }, [user, reset]);
+
+  const onPhotoChange = async (url: string) => {
+    if (!user?.id) return;
+    try {
+      const updated = await utilisateurApi.update(user.id, { photoProfilUrl: url });
+      setUser(updated);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err.message || 'Erreur';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    }
+  };
+
+  const onSubmit = async (data: ProfileForm) => {
+    if (!user?.id) return;
+    setIsSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = {
+        nom: data.nom,
+        prenom: data.prenom,
+        telephone: data.telephone,
+        adresse: data.adresse || undefined,
+        ville: data.ville || undefined,
+        pays: data.pays || undefined,
+      };
+      const updated = await utilisateurApi.update(user.id, payload);
+      setUser(updated);
+      toast.success('Profil mis à jour.');
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message || err.message || 'Erreur lors de la mise à jour';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!user) return null;
+
+  const initials = [user.nom?.charAt(0), user.prenom?.charAt(0)].filter(Boolean).join('').toUpperCase() || '?';
+
+  return (
+    <div className="space-y-8 max-w-2xl mx-auto">
+      {/* En-tête */}
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-900">Mon profil</h1>
+        <p className="text-gray-500 mt-1">
+          Consultez et modifiez vos informations personnelles.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* Bloc Identité */}
+        <Card>
+          <h2 className="text-base font-semibold text-gray-900 mb-5">
+            Identité
+          </h2>
+          <div className="flex flex-col sm:flex-row gap-6 items-center justify-center">
+            <div className="flex sm:flex-col items-center sm:items-center gap-4 sm:gap-3">
+              <ImageUpload
+                value={user.photoProfilUrl}
+                onChange={onPhotoChange}
+                editable
+                placeholderType="initials"
+                placeholderText={initials}
+                folder="collect_app/utilisateurs"
+                size="lg"
+                shape="circle"
+              />
+              <p className="text-sm text-gray-500 sm:text-left text-center">
+                Cliquez sur la photo pour la modifier.
+              </p>
+            </div>
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+              <Input
+                label="Nom *"
+                placeholder="Votre nom"
+                error={errors.nom?.message}
+                {...register('nom', { required: 'Le nom est requis' })}
+              />
+              <Input
+                label="Prénom"
+                placeholder="Votre prénom"
+                {...register('prenom')}
+              />
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rôle
+                </label>
+                <p className="text-sm text-gray-900 py-2 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  {roleLabels[user.role] ?? user.role}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Le rôle n&apos;est pas modifiable.
+                </p>
+              </div>
+              <div className="sm:col-span-2">
+                <Input
+                  label="Email"
+                  type="email"
+                  placeholder="email@exemple.com"
+                  disabled
+                  {...register('email')}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  L&apos;email de connexion n&apos;est pas modifiable depuis cette page.
+                </p>
+              </div>
+              <Controller
+                name="telephone"
+                control={control}
+                rules={{ required: 'Le téléphone est requis' }}
+                render={({ field }) => (
+                  <PhoneInput
+                    label="Téléphone *"
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    error={errors.telephone?.message}
+                    className="sm:col-span-2"
+                  />
+                )}
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Bloc Adresse */}
+        <Card>
+          <h2 className="text-base font-semibold text-gray-900 mb-5">
+            Adresse
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Adresse"
+              placeholder="Numéro, rue, quartier"
+              className="sm:col-span-2"
+              {...register('adresse')}
+            />
+            <Input
+              label="Ville"
+              placeholder="Ex. Douala"
+              {...register('ville')}
+            />
+            <Input
+              label="Pays"
+              placeholder="Ex. Cameroun"
+              {...register('pays')}
+            />
+          </div>
+        </Card>
+
+        {/* Actions */}
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-center gap-3">
+          <Button
+            type="submit"
+            isLoading={isSubmitting}
+            className="sm:min-w-[140px]"
+          >
+            Enregistrer les modifications
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}

@@ -1,0 +1,64 @@
+export const AppRoutes = {
+  HOME: '/',
+  LOGIN: '/login',
+  REGISTER: '/register',
+  ONBOARDING: '/onboarding',
+  DASHBOARD: '/dashboard',
+  // ─── Utilisateurs ──────────────────────────────
+  UTILISATEURS: '/utilisateurs',
+  // ─── Collecteurs ────────────────────────────────
+  COLLECTEURS: '/collecteurs',
+  COLLECTEUR_CREATE: '/collecteurs/create',
+  COLLECTEUR_DETAIL: '/collecteurs/:id',
+  // ─── Clients ────────────────────────────────────
+  CLIENTS: '/clients',
+  CLIENT_CREATE: '/clients/create',
+  CLIENT_DETAIL: '/clients/:id',
+  // ─── Collectes ──────────────────────────────────
+  COLLECTES: '/collectes',
+  COLLECTE_CREATE: '/collectes/create',
+  COLLECTE_DETAIL: '/collectes/:id',
+  // ─── Produits microfinance (Épargne, Crédit, Tontine) ─
+  PRODUITS_MICROFINANCE: '/produits-microfinance',
+  // ─── Produits / Plans (legacy, redirige vers plans ou microfinance) ─
+  PRODUITS: '/produits',
+  PRODUIT_CREATE: '/produits/create',
+  PRODUIT_EDIT: '/produits/:id/edit',
+  // ─── Souscriptions ──────────────────────────────
+  SOUSCRIPTIONS: '/souscriptions',
+  SOUSCRIPTION_CREATE: '/souscriptions/create',
+  // ─── Tournées ───────────────────────────────────
+  TOURNEES: '/tournees',
+  TOURNEE_DETAIL: '/tournees/:id',
+  // ─── Clôture journalière ────────────────────────
+  CLOTURE: '/cloture',
+  // ─── Audit / Historique ─────────────────────────
+  AUDIT: '/audit',
+  // ─── Zones ──────────────────────────────────────
+  ZONES: '/zones',
+  // ─── Agences (Sprint 5) ─────────────────────────
+  AGENCES: '/agences',
+  // ─── Comptabilité (Sprint 6) ─────────────────────
+  COMPTABILITE: '/comptabilite',
+  // ─── Commissions ────────────────────────────────
+  COMMISSIONS: '/commissions',
+  // ─── Demandes de retrait ────────────────────────
+  DEMANDES_RETRAIT: '/demandes-retrait',
+  // ─── Crédit (Sprint 3) ───────────────────────────
+  CREDIT: '/credit',
+  CREDIT_CREATE: '/credit/create',
+  CREDIT_DETAIL: '/credit/:id',
+  // ─── Super Admin ────────────────────────────────
+  SUPER_ADMIN_DASHBOARD: '/super-admin',
+  SUPER_ADMIN_ENTREPRISES: '/super-admin/entreprises',
+  SUPER_ADMIN_ENTREPRISE_DETAIL: '/super-admin/entreprises/:id',
+  // ─── Garanties & Assurances (Sprint 10) ─────────
+  GARANTIES: '/parametres/garanties',
+  // ─── Plans de collecte (paramétrage) ────────────
+  PLANS_COLLECTE: '/parametres/plans-collecte',
+  // ─── Paramètres (Admin entreprise) & Profil ──────
+  PARAMETRES: '/parametres',
+  PERMISSIONS: '/parametres/permissions',
+  PROFIL: '/profil',
+  UTILISATEUR_DETAIL: '/utilisateurs/:id',
+} as const;
