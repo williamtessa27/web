@@ -2,6 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import { ApiConfig } from '@/config/api.config';
 
 let socket: Socket | null = null;
+let socketConnectErrorLogged = false;
 
 export type NotificationPayload = {
   id: string;
@@ -17,6 +18,7 @@ export type NotificationPayload = {
 /**
  * Connecte au serveur WebSocket et écoute les événements notification / notification_count.
  * À appeler avec le token JWT (ex: depuis le store auth).
+ * Si le serveur socket n'est pas démarré (ex: port 3007), la connexion échoue sans bloquer l'app.
  */
 export function connectNotificationSocket(
   token: string | null,
@@ -39,18 +41,25 @@ export function connectNotificationSocket(
   socket.on('notification', onNotification);
   socket.on('notification_count', onCount);
 
-  socket.on('connect_error', (err) => {
-    console.warn('[NotificationSocket] Connexion échouée:', err.message);
+  socket.on('connect_error', () => {
+    if (!socketConnectErrorLogged) {
+      socketConnectErrorLogged = true;
+      if (import.meta.env.DEV) {
+        console.warn(
+          '[NotificationSocket] Connexion impossible (serveur socket non démarré ?). Les notifications en temps réel sont désactivées.',
+        );
+      }
+    }
   });
 
   return () => {
     if (socket) {
       socket.off('notification', onNotification);
       socket.off('notification_count', onCount);
-      try {
+      // Ne pas appeler disconnect() si la connexion n'est pas encore établie
+      // (évite "WebSocket is closed before the connection is established" en React Strict Mode)
+      if (socket.connected) {
         socket.disconnect();
-      } catch {
-        // Ignore si déconnexion pendant la phase de connexion
       }
       socket = null;
     }
@@ -59,7 +68,7 @@ export function connectNotificationSocket(
 
 export function disconnectNotificationSocket(): void {
   if (socket) {
-    socket.disconnect();
+    if (socket.connected) socket.disconnect();
     socket = null;
   }
 }

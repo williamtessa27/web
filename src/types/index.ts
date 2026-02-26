@@ -26,6 +26,8 @@ export interface Utilisateur {
   entreprise?: Entreprise;
   photoProfilUrl?: string;
   actif: boolean;
+  /** E8.1.1 — Date de validité du compte (optionnelle). Après cette date, la connexion est refusée. */
+  dateFinValidite?: string | null;
   nombreConnexions: number;
   createdAt: string;
 }
@@ -66,6 +68,10 @@ export interface Entreprise {
   tauxCommissionRetraitAnticipe?: number;
   dureeMinJoursAvantRetrait?: number;
   montantMinCotisationJournaliere?: number;
+  tauxInteretEpargne?: number;
+  frequenceCalculInteret?: import('./enums').FrequenceCalculInteret | null;
+  methodeCalculInteret?: import('./enums').MethodeCalculInteret | null;
+  precisionArrondiInteret?: number;
   /** Modules activés (ex: COLLECTE, EPARGNE, CREDIT) */
   modulesActives?: string[];
   /** Sprint 8 — SMS confirmation collecte */
@@ -76,9 +82,36 @@ export interface Entreprise {
   retentionKycAnnee?: number | null;
   /** Sprint 11 — Seuil minimum score client (0–100) pour octroi crédit. Null = non utilisé. */
   scoreSeuilCredit?: number | null;
+  /** E8.2.2 — Politique mot de passe (longueur min, complexité). */
+  motDePasseLongueurMin?: number;
+  motDePasseExigerChiffre?: boolean;
+  motDePasseExigerMajuscule?: boolean;
+  motDePasseExigerSpecial?: boolean;
+  /** E8.2.2 — Expiration MDP (jours). Null = pas d'expiration. */
+  motDePasseExpirationJours?: number | null;
+  /** E8.2.2 — Nombre de MDP à ne pas réutiliser. Null = pas de vérification. */
+  motDePasseHistoriqueCount?: number | null;
+  /** E8 — Crédit : seuil (montant) au-dessus duquel double validation obligatoire. Null = validation simple. */
+  seuilMontantDoubleValidation?: number | null;
+  /** Module 10 — Au-dessus de ce montant accordé, une assurance active est obligatoire avant octroi. Null = pas d'exigence. */
+  seuilMontantCreditAssuranceObligatoire?: number | null;
+  /** Date de fin de la période d'essai (Super Admin). Null = pas de limite. */
+  dateFinEssai?: string | null;
   statut: import('./enums').StatutEntreprise;
   profilComplete: boolean;
   actif: boolean;
+  createdAt: string;
+}
+
+// ─── Abonnement plateforme (SaaS) ─────────────────
+export interface Abonnement {
+  id: string;
+  entrepriseId: string;
+  montant: number;
+  dateDebut: string;
+  dateFin: string;
+  dureeMois: number;
+  createdBy?: string | null;
   createdAt: string;
 }
 
@@ -229,7 +262,6 @@ export interface Produit {
   montantCible?: number;
   fraisRetenue: number;
   dureeBlocageJours?: number;
-  tauxInteret?: number;
   objectifEpargne?: string;
   idEntreprise: string;
   actif: boolean;
@@ -298,7 +330,27 @@ export interface Souscription {
   montantCollecte: number;
   montantCible: number;
   joursCollectes: number;
+  /** Cumul des intérêts crédités (E3.4) */
+  montantInterets?: number;
   statut: import('./enums').StatutSouscription;
+  idEntreprise: string;
+  createdAt: string;
+}
+
+// ─── Mouvement compte (épargne : dépôt, retrait, commission, intérêt) ─
+export type TypeMouvementCompte = 'COLLECTE' | 'RETRAIT' | 'COMMISSION' | 'INTERET' | 'AJUSTEMENT' | 'REMBOURSEMENT';
+
+export interface MouvementCompte {
+  id: string;
+  idClient: string;
+  type: TypeMouvementCompte;
+  montant: number;
+  soldeAvant: number;
+  soldeApres: number;
+  reference?: string | null;
+  description?: string | null;
+  idSouscription?: string | null;
+  idAuteur?: string | null;
   idEntreprise: string;
   createdAt: string;
 }
@@ -363,6 +415,36 @@ export interface ClotureRecap {
   }>;
   totalMontant: number;
   totalCollectes: number;
+}
+
+/** E6.3.1 — Avance de fonds attribuée à un collecteur */
+export interface AvanceCollecteur {
+  id: string;
+  idCollecteur: string;
+  idEntreprise: string;
+  montant: number;
+  dateAvance: string;
+  idUtilisateur: string;
+  idAgence: string | null;
+  commentaire: string | null;
+  createdAt: string;
+  collecteur?: { id: string; codeCollecteur: string; utilisateur?: { nom?: string } };
+}
+
+/** E5.3 / E6.3 — Rapprochement collecte terrain vs caisse agence (par date) */
+export interface RapprochementLigne {
+  idCollecteur: string;
+  codeCollecteur: string;
+  nomCollecteur: string;
+  montantTerrain: number;
+  montantDepose: number | null;
+  ecart: number;
+  nombreCollectes: number;
+}
+
+export interface RapprochementResponse {
+  date: string;
+  lignes: RapprochementLigne[];
 }
 
 // ─── Audit ─────────────────────────────────────────
@@ -529,6 +611,10 @@ export interface ParametresEntrepriseRequest extends CompleteEntrepriseRequest {
   tauxCommissionRetraitAnticipe?: number;
   dureeMinJoursAvantRetrait?: number;
   montantMinCotisationJournaliere?: number;
+  tauxInteretEpargne?: number;
+  frequenceCalculInteret?: import('./enums').FrequenceCalculInteret | null;
+  methodeCalculInteret?: import('./enums').MethodeCalculInteret | null;
+  precisionArrondiInteret?: number;
   /** Modules activés (ex: COLLECTE, EPARGNE, CREDIT) */
   modulesActives?: string[];
   /** Sprint 8 — SMS confirmation collecte */
@@ -539,6 +625,17 @@ export interface ParametresEntrepriseRequest extends CompleteEntrepriseRequest {
   retentionKycAnnee?: number | null;
   /** Sprint 11 — Seuil minimum score client pour octroi crédit (0–100). Null = non utilisé. */
   scoreSeuilCredit?: number | null;
+  /** E8 — Crédit : seuil montant double validation. Null = validation simple. */
+  seuilMontantDoubleValidation?: number | null;
+  /** Module 10 — Seuil montant au-dessus duquel une assurance active est obligatoire avant octroi. Null = pas d'exigence. */
+  seuilMontantCreditAssuranceObligatoire?: number | null;
+  /** E8.2.2 — Politique mot de passe */
+  motDePasseLongueurMin?: number;
+  motDePasseExigerChiffre?: boolean;
+  motDePasseExigerMajuscule?: boolean;
+  motDePasseExigerSpecial?: boolean;
+  motDePasseExpirationJours?: number | null;
+  motDePasseHistoriqueCount?: number | null;
   /** Sprint 12 — Branding white-label */
   logoUrl?: string;
   couleurPrimaire?: string;

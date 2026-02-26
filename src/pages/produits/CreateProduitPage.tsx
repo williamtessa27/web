@@ -18,7 +18,6 @@ interface CreateProduitForm {
   montantCible: string;
   fraisRetenue: string;
   dureeBlocageJours: string;
-  tauxInteret: string;
   objectifEpargne: string;
 }
 
@@ -51,7 +50,6 @@ export default function CreateProduitPage() {
       montantCible: '',
       dureeJours: '',
       dureeBlocageJours: '',
-      tauxInteret: '0',
       objectifEpargne: '',
     },
   });
@@ -68,7 +66,6 @@ export default function CreateProduitPage() {
       ...(data.montantCible ? { montantCible: Number(data.montantCible) } : {}),
       ...(data.fraisRetenue ? { fraisRetenue: Number(data.fraisRetenue) } : { fraisRetenue: 0 }),
       ...(data.dureeBlocageJours ? { dureeBlocageJours: Number(data.dureeBlocageJours) } : {}),
-      ...(data.tauxInteret !== '' ? { tauxInteret: Number(data.tauxInteret) } : {}),
       ...(data.objectifEpargne?.trim() ? { objectifEpargne: data.objectifEpargne.trim() } : {}),
     };
     try {
@@ -198,16 +195,6 @@ export default function CreateProduitPage() {
                   {...register('dureeBlocageJours', { min: { value: 1, message: 'Min. 1' } })}
                 />
               )}
-              {(selectedType === 'EPARGNE_BLOQUEE' || selectedType === 'EPARGNE') && (
-                <Input
-                  label="Taux d'intérêt annuel (%)"
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  placeholder="0"
-                  {...register('tauxInteret', { min: { value: 0, message: 'Min. 0' } })}
-                />
-              )}
               {selectedType === 'EPARGNE_PROGRAMMEE' && (
                 <Input
                   label="Objectif épargne"
@@ -215,6 +202,9 @@ export default function CreateProduitPage() {
                   {...register('objectifEpargne')}
                 />
               )}
+              <p className="md:col-span-3 text-xs text-gray-500">
+                Taux d&apos;intérêt, fréquence de collecte et pénalité retrait anticipé sont définis dans Paramètres (entreprise).
+              </p>
             </div>
           )}
 

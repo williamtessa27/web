@@ -1,8 +1,11 @@
 import { useForm, Controller } from 'react-hook-form';
 import { useState, useEffect } from 'react';
+import { format, parseISO } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/core/store/auth.store';
 import { utilisateurApi } from '@/core/api';
+import { authApi, type SessionConnexion } from '@/core/api/auth.api';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import PhoneInput from '@/components/ui/PhoneInput';
@@ -32,6 +35,8 @@ type ProfileForm = Pick<
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sessions, setSessions] = useState<SessionConnexion[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   const {
     register,
@@ -54,6 +59,15 @@ export default function ProfilePage() {
       });
     }
   }, [user, reset]);
+
+  useEffect(() => {
+    setSessionsLoading(true);
+    authApi
+      .sessions()
+      .then(setSessions)
+      .catch(() => setSessions([]))
+      .finally(() => setSessionsLoading(false));
+  }, []);
 
   const onPhotoChange = async (url: string) => {
     if (!user?.id) return;
@@ -216,6 +230,46 @@ export default function ProfilePage() {
           </Button>
         </div>
       </form>
+
+      {/* Mes connexions (E8.2.3) */}
+      <Card>
+        <h2 className="text-base font-semibold text-gray-900 mb-2">
+          Mes connexions récentes
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Les 50 dernières connexions sur les 30 derniers jours. En cas de connexion inconnue, changez votre mot de passe.
+        </p>
+        {sessionsLoading ? (
+          <p className="text-sm text-gray-500">Chargement…</p>
+        ) : sessions.length === 0 ? (
+          <p className="text-sm text-gray-500">Aucune connexion enregistrée.</p>
+        ) : (
+          <div className="overflow-x-auto -mx-2">
+            <table className="w-full text-sm min-w-[400px]">
+              <thead>
+                <tr className="border-b text-left text-gray-500">
+                  <th className="pb-2 pr-4 font-medium">Date</th>
+                  <th className="pb-2 pr-4 font-medium">IP</th>
+                  <th className="pb-2 font-medium">Appareil / navigateur</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sessions.map((s) => (
+                  <tr key={s.id} className="border-b border-gray-100">
+                    <td className="py-2 pr-4">
+                      {format(parseISO(s.dateConnexion), "dd MMM yyyy HH:mm", { locale: fr })}
+                    </td>
+                    <td className="py-2 pr-4">{s.ip ?? '—'}</td>
+                    <td className="py-2 truncate max-w-[200px]" title={s.userAgent ?? undefined}>
+                      {s.userAgent ?? s.deviceInfo ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

@@ -6,9 +6,11 @@ import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { clientApi, collecteurApi, zoneApi, produitApi, souscriptionApi, utilisateurApi, agenceApi } from '@/core/api';
 import { AppRoutes } from '@/config/routes.config';
+import { useHasPermission } from '@/config/permissions';
 import { useAuthStore } from '@/core/store/auth.store';
 import { RoleUtilisateur } from '@/types';
-import type { Client, ClientScoreResult, HistoriqueAffectationClient, Collecteur, Zone, Produit, Souscription, TypeModuleProduit, Agence } from '@/types';
+import type { Client, ClientScoreResult, HistoriqueAffectationClient, Collecteur, Zone, Produit, Souscription, TypeModuleProduit, Agence, MouvementCompte } from '@/types';
+import type { PaginatedResponse } from '@/types';
 import { StatutClient } from '@/types/enums';
 import { TypeProduit } from '@/types';
 
@@ -20,6 +22,22 @@ const TYPES_PLANS_COLLECTE: TypeProduit[] = [
   TypeProduit.TONTINE,
   TypeProduit.LIBRE,
 ];
+
+/** Types produit épargne (pour afficher le bouton Clôturer) */
+const TYPES_PRODUIT_EPARGNE: TypeProduit[] = [
+  TypeProduit.EPARGNE,
+  TypeProduit.EPARGNE_BLOQUEE,
+  TypeProduit.EPARGNE_PROGRAMMEE,
+];
+
+const TYPE_MOUVEMENT_LABEL: Record<string, string> = {
+  COLLECTE: 'Dépôt',
+  RETRAIT: 'Retrait',
+  COMMISSION: 'Commission',
+  INTERET: 'Intérêt',
+  AJUSTEMENT: 'Ajustement',
+  REMBOURSEMENT: 'Remboursement',
+};
 
 const MODULE_LABELS: Record<TypeModuleProduit, string> = {
   COLLECTE: 'Collecte',
@@ -62,23 +80,10 @@ const statutBadge = (statut?: StatutClient) => {
   }
 };
 
-const canEditClient = (role?: string) =>
-  role === RoleUtilisateur.SuperAdmin ||
-  role === RoleUtilisateur.AdminEntreprise ||
-  role === RoleUtilisateur.ChefAgence ||
-  role === RoleUtilisateur.Gestionnaire;
-
 const canEditAgence = (role?: string) =>
   role === RoleUtilisateur.SuperAdmin ||
   role === RoleUtilisateur.AdminEntreprise ||
   role === RoleUtilisateur.ChefAgence;
-
-const canValidateClient = (role?: string) =>
-  role === RoleUtilisateur.SuperAdmin ||
-  role === RoleUtilisateur.AdminEntreprise ||
-  role === RoleUtilisateur.Directeur ||
-  role === RoleUtilisateur.ChefAgence ||
-  role === RoleUtilisateur.Gestionnaire;
 
 const canRemettreActif = (role?: string) =>
   role === RoleUtilisateur.SuperAdmin ||
@@ -91,6 +96,9 @@ const isClientValidated = (c: Client) =>
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const currentUser = useAuthStore((s) => s.user);
+  const canEditClient = useHasPermission('canUpdateClient');
+  const canValidateClient = useHasPermission('canValidateClient');
+  const canDeleteClient = useHasPermission('canDeleteClient');
   const [client, setClient] = useState<Client | null>(null);
   const [historique, setHistorique] = useState<HistoriqueAffectationClient[]>([]);
   const [collecteurs, setCollecteurs] = useState<Collecteur[]>([]);
@@ -114,7 +122,6 @@ export default function ClientDetailPage() {
   const [formEmail, setFormEmail] = useState('');
   const [formAdresse, setFormAdresse] = useState('');
   const [formIdZone, setFormIdZone] = useState('');
-  const [formIdAgence, setFormIdAgence] = useState('');
   const [formPieceIdentiteRectoUrl, setFormPieceIdentiteRectoUrl] = useState('');
   const [formPieceIdentiteVersoUrl, setFormPieceIdentiteVersoUrl] = useState('');
   const [formGenre, setFormGenre] = useState('');
@@ -139,6 +146,9 @@ export default function ClientDetailPage() {
   const [formTypeClient, setFormTypeClient] = useState('');
   const [formNombreMembres, setFormNombreMembres] = useState<string>('');
   const [formTelephoneSecondaire, setFormTelephoneSecondaire] = useState('');
+  const [showChangerAgenceModal, setShowChangerAgenceModal] = useState(false);
+  const [nouvelleAgenceId, setNouvelleAgenceId] = useState('');
+  const [submittingChangerAgence, setSubmittingChangerAgence] = useState(false);
   const [showRemettreAcces, setShowRemettreAcces] = useState(false);
   const [nouveauMotDePasse, setNouveauMotDePasse] = useState('');
   const [submittingRemettreAcces, setSubmittingRemettreAcces] = useState(false);
@@ -148,6 +158,8 @@ export default function ClientDetailPage() {
   const [showConfirmResilier, setShowConfirmResilier] = useState(false);
   const [showConfirmRemettreActif, setShowConfirmRemettreActif] = useState(false);
   const [submittingAdhesion, setSubmittingAdhesion] = useState<string | null>(null);
+  const [mouvementsData, setMouvementsData] = useState<PaginatedResponse<MouvementCompte> | null>(null);
+  const [clotureLoadingId, setClotureLoadingId] = useState<string | null>(null);
 
   const modulesActives: TypeModuleProduit[] = ['COLLECTE', 'EPARGNE', 'CREDIT'];
   const adhesions = client?.adhesionsProduits?.filter((a) => a.actif) ?? [];
@@ -184,7 +196,6 @@ export default function ClientDetailPage() {
         setFormQuartier(c.quartier ?? '');
         setFormPays(c.pays ?? '');
         setFormIdZone(c.idZone ?? '');
-        setFormIdAgence(c.idAgence ?? '');
         setFormPieceIdentiteRectoUrl(c.pieceIdentiteRectoUrl ?? '');
         setFormPieceIdentiteVersoUrl(c.pieceIdentiteVersoUrl ?? '');
         setFormGenre(c.genre ?? '');
@@ -209,6 +220,31 @@ export default function ClientDetailPage() {
       .catch(() => toast.error('Client introuvable'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !client?.id || !hasAdhesionEpargne) {
+      setMouvementsData(null);
+      return;
+    }
+    clientApi.mouvements(id, { page: 1, limit: 50 }).then(setMouvementsData).catch(() => setMouvementsData(null));
+  }, [id, client?.id, hasAdhesionEpargne]);
+
+  const handleClotureSouscription = async (souscriptionId: string) => {
+    if (!id || !window.confirm('Clôturer ce compte épargne ? La souscription passera en statut Terminée.')) return;
+    setClotureLoadingId(souscriptionId);
+    try {
+      await souscriptionApi.cloture(souscriptionId);
+      const updated = await clientApi.get(id);
+      setClient(updated);
+      toast.success('Compte épargne clôturé.');
+      clientApi.mouvements(id, { page: 1, limit: 50 }).then(setMouvementsData).catch(() => setMouvementsData(null));
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      toast.error(err?.response?.data?.message || 'Erreur lors de la clôture.');
+    } finally {
+      setClotureLoadingId(null);
+    }
+  };
 
   const handleReaffecter = async () => {
     if (!id || newCollecteurId === client?.idCollecteur) return;
@@ -350,10 +386,6 @@ export default function ClientDetailPage() {
     }
     setSubmittingInfo(true);
     try {
-      // Changement d'agence : opération distincte (audit + notifications Admin/Chef agence).
-      if (canEditAgence(currentUser?.role) && formIdAgence && formIdAgence !== client?.idAgence) {
-        await clientApi.changerAgence(id, formIdAgence);
-      }
       const payload: Parameters<typeof clientApi.update>[1] = {
         typeClient: (formTypeClient === 'PERSONNE_PHYSIQUE' || formTypeClient === 'GROUPEMENT' ? formTypeClient : undefined) as Client['typeClient'] | undefined,
         nombreMembres: formNombreMembres ? parseInt(formNombreMembres, 10) : undefined,
@@ -386,9 +418,6 @@ export default function ClientDetailPage() {
         notes: formNotes || undefined,
         idZone: formIdZone || undefined,
       };
-      if (canEditAgence(currentUser?.role) && formIdAgence) {
-        payload.idAgence = formIdAgence;
-      }
       const updated = await clientApi.update(id, payload);
       setClient(updated);
       setEditingInfo(false);
@@ -398,6 +427,24 @@ export default function ClientDetailPage() {
       toast.error(Array.isArray(msg) ? msg[0] : msg);
     } finally {
       setSubmittingInfo(false);
+    }
+  };
+
+  const handleChangerAgence = async () => {
+    if (!id || !nouvelleAgenceId || nouvelleAgenceId === client?.idAgence) return;
+    setSubmittingChangerAgence(true);
+    try {
+      await clientApi.changerAgence(id, nouvelleAgenceId);
+      const updated = await clientApi.get(id);
+      setClient(updated);
+      setShowChangerAgenceModal(false);
+      setNouvelleAgenceId(client?.idAgence ?? '');
+      toast.success('Agence mise à jour. Les administrateurs et chefs d\'agence ont été notifiés.');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? e?.message ?? 'Erreur';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    } finally {
+      setSubmittingChangerAgence(false);
     }
   };
 
@@ -446,7 +493,8 @@ export default function ClientDetailPage() {
     const hadAccount = !!client?.idUtilisateur;
     setSubmittingRemettreAcces(true);
     try {
-      const updated = await clientApi.update(id, { motDePasse: nouveauMotDePasse });
+      await clientApi.update(id, { motDePasse: nouveauMotDePasse });
+      const updated = await clientApi.get(id);
       setClient(updated);
       setShowRemettreAcces(false);
       setNouveauMotDePasse('');
@@ -494,15 +542,17 @@ export default function ClientDetailPage() {
               <HiOutlineCheckCircle className="h-4 w-4" /> Remettre actif
             </Button>
           )}
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={handleSupprimer}
-            disabled={submitting}
-            title="Supprimer (résilié). Impossible si le client a déjà des collectes."
-          >
-            <HiOutlineTrash className="h-4 w-4" /> Supprimer
-          </Button>
+          {canDeleteClient && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleSupprimer}
+              disabled={submitting}
+              title="Supprimer (résilié). Impossible si le client a déjà des collectes."
+            >
+              <HiOutlineTrash className="h-4 w-4" /> Supprimer
+            </Button>
+          )}
         </div>
       </div>
 
@@ -532,7 +582,7 @@ export default function ClientDetailPage() {
         </Card>
       )}
 
-      {client.statut === StatutClient.EN_ATTENTE_VALIDATION && canValidateClient(currentUser?.role) && (() => {
+      {client.statut === StatutClient.EN_ATTENTE_VALIDATION && canValidateClient && (() => {
         const missingValidation = getMissingValidationFields(client);
         const canValidate = missingValidation.length === 0;
         return (
@@ -625,7 +675,7 @@ export default function ClientDetailPage() {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Informations</h2>
-          {canEditClient(currentUser?.role) && (
+          {canEditClient && (
           !editingInfo ? (
             <Button variant="secondary" size="sm" onClick={() => setEditingInfo(true)}>
               <HiOutlinePencil className="h-4 w-4" /> Modifier
@@ -646,7 +696,6 @@ export default function ClientDetailPage() {
                   setFormQuartier(client.quartier ?? '');
                   setFormPays(client.pays ?? '');
                   setFormIdZone(client.idZone ?? '');
-                  setFormIdAgence(client.idAgence ?? '');
                   setFormPieceIdentiteRectoUrl(client.pieceIdentiteRectoUrl ?? '');
                   setFormPieceIdentiteVersoUrl(client.pieceIdentiteVersoUrl ?? '');
                   setFormGenre(client.genre ?? '');
@@ -678,7 +727,7 @@ export default function ClientDetailPage() {
           )}
         </div>
           <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100">
-          {canEditClient(currentUser?.role) && editingInfo ? (
+          {canEditClient && editingInfo ? (
             <ImageUpload
               value={client.photoUrl}
               onChange={onClientPhotoChange}
@@ -1059,23 +1108,11 @@ export default function ClientDetailPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Agence</label>
-              {canEditAgence(currentUser?.role) ? (
-                <>
-                  <Select
-                    value={formIdAgence}
-                    onChange={(e) => setFormIdAgence(e.target.value)}
-                  >
-                    <option value="">— Aucune —</option>
-                    {agences.map((a) => (
-                      <option key={a.id} value={a.id}>{a.nom}</option>
-                    ))}
-                  </Select>
-                  <p className="text-xs text-gray-500 mt-1">Seuls Admin et Chef d&apos;agence peuvent modifier l&apos;agence.</p>
-                </>
-              ) : (
-                <Badge variant="info">
-                  {client?.agence?.nom ?? agences.find((a) => a.id === formIdAgence || a.id === client?.idAgence)?.nom ?? (client?.idAgence ? '—' : 'Non assignée')}
-                </Badge>
+              <Badge variant="info">
+                {client?.agence?.nom ?? agences.find((a) => a.id === client?.idAgence)?.nom ?? (client?.idAgence ? '—' : 'Non assignée')}
+              </Badge>
+              {canEditAgence(currentUser?.role) && (
+                <p className="text-xs text-gray-500 mt-1">Pour changer l&apos;agence, utilisez le bloc « Changer l&apos;agence » sur cette page.</p>
               )}
             </div>
             <div>
@@ -1125,6 +1162,31 @@ export default function ClientDetailPage() {
           </div>
         )}
       </Card>
+
+      {canEditAgence(currentUser?.role) && (
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Changer l&apos;agence</h2>
+          <p className="text-sm text-gray-500 mb-3">
+            L&apos;agence actuelle du client détermine les droits et périmètres. Le changement est une opération distincte (audit et notifications).
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-gray-700">Agence actuelle :</span>
+            <Badge variant="info">
+              {client?.agence?.nom ?? agences.find((a) => a.id === client?.idAgence)?.nom ?? (client?.idAgence ? '—' : 'Non assignée')}
+            </Badge>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setNouvelleAgenceId(client?.idAgence ?? '');
+                setShowChangerAgenceModal(true);
+              }}
+            >
+              Changer l&apos;agence
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {!client.idUtilisateur && (
         <Card>
@@ -1206,6 +1268,39 @@ export default function ClientDetailPage() {
       </Modal>
 
       <Modal
+        open={showChangerAgenceModal}
+        onClose={() => { setShowChangerAgenceModal(false); setNouvelleAgenceId(''); }}
+        title="Changer l'agence du client"
+        size="sm"
+      >
+        <p className="text-gray-600 text-sm mb-4">
+          Sélectionnez la nouvelle agence pour <strong>{client.nom} {client.prenom}</strong>. Cette action est enregistrée et notifie les administrateurs et chefs d&apos;agence.
+        </p>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Nouvelle agence *</label>
+          <Select
+            value={nouvelleAgenceId}
+            onChange={(e) => setNouvelleAgenceId(e.target.value)}
+          >
+            <option value="">— Aucune —</option>
+            {agences.map((a) => (
+              <option key={a.id} value={a.id}>{a.nom}</option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => { setShowChangerAgenceModal(false); setNouvelleAgenceId(''); }}>Annuler</Button>
+          <Button
+            onClick={handleChangerAgence}
+            isLoading={submittingChangerAgence}
+            disabled={!nouvelleAgenceId || nouvelleAgenceId === client?.idAgence}
+          >
+            Confirmer
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
         open={showConfirmDesactiverCompte}
         onClose={() => setShowConfirmDesactiverCompte(false)}
         title="Désactiver le compte client"
@@ -1263,14 +1358,14 @@ export default function ClientDetailPage() {
                 {hasAdhesion(mod) ? (
                   <>
                     <Badge variant="success">Lié</Badge>
-                    {canEditClient(currentUser?.role) && (
+                    {canEditClient && (
                       <Button variant="ghost" size="sm" onClick={() => handleRemoveAdhesion(mod)} disabled={!!submittingAdhesion} isLoading={submittingAdhesion === mod}>
                         Retirer
                       </Button>
                     )}
                   </>
                 ) : (
-                  canEditClient(currentUser?.role) && (
+                  canEditClient && (
                     <Button variant="secondary" size="sm" onClick={() => handleAddAdhesion(mod)} disabled={!!submittingAdhesion} isLoading={submittingAdhesion === mod}>
                       Lier
                     </Button>
@@ -1299,20 +1394,36 @@ export default function ClientDetailPage() {
           <p className="text-gray-500 mb-3">Aucun plan de collecte assigné. Ajoutez une souscription (ex. 1000 F/jour, 2000 F/jour) pour que le collecteur puisse enregistrer des collectes.</p>
         ) : (
           <ul className="divide-y divide-gray-100 mb-4">
-            {souscriptions.map((s: Souscription) => (
-              <li key={s.id} className="py-3 flex flex-wrap items-center justify-between gap-2 text-sm">
-                <div>
-                  <span className="font-medium text-gray-900">{s.produit?.nom ?? 'Produit'}</span>
-                  <span className="ml-2 text-gray-500">
-                    — {s.produit ? Number(s.produit.montantJournalier).toLocaleString('fr-FR') : '?'} FCFA/jour
+            {souscriptions.map((s: Souscription) => {
+              const isEpargneEnCours = s.statut === 'EN_COURS' && s.produit && TYPES_PRODUIT_EPARGNE.includes(s.produit.type as TypeProduit);
+              return (
+                <li key={s.id} className="py-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-900">{s.produit?.nom ?? 'Produit'}</span>
+                    <span className="ml-2 text-gray-500">
+                      — {s.produit ? Number(s.produit.montantJournalier).toLocaleString('fr-FR') : '?'} FCFA/jour
+                    </span>
+                  </div>
+                  <span className="text-gray-500">
+                    Collecté : {Number(s.montantCollecte).toLocaleString('fr-FR')} / {Number(s.produit?.montantCible ?? s.montantCible).toLocaleString('fr-FR')} FCFA
+                    {s.montantInterets != null && Number(s.montantInterets) > 0 && (
+                      <> · Intérêts : {Number(s.montantInterets).toLocaleString('fr-FR')} FCFA</>
+                    )}
+                    {s.statut !== 'EN_COURS' && ` • ${s.statut}`}
                   </span>
-                </div>
-                <span className="text-gray-500">
-                  Collecté : {Number(s.montantCollecte).toLocaleString('fr-FR')} / {Number(s.produit?.montantCible ?? s.montantCible).toLocaleString('fr-FR')} FCFA
-                  {s.statut !== 'EN_COURS' && ` • ${s.statut}`}
-                </span>
-              </li>
-            ))}
+                  {isEpargneEnCours && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleClotureSouscription(s.id)}
+                      disabled={clotureLoadingId === s.id}
+                    >
+                      {clotureLoadingId === s.id ? '…' : 'Clôturer'}
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
         {isClientValidated(client) && hasAdhesionCollecte && (
@@ -1371,6 +1482,40 @@ export default function ClientDetailPage() {
         </div>
         )}
       </Card>
+
+      {hasAdhesionEpargne && (
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Historique épargne</h2>
+          {!mouvementsData?.data?.length ? (
+            <p className="text-gray-500">Aucun mouvement de compte (dépôts, retraits, intérêts) pour le moment.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Montant (XAF)</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Solde après</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {mouvementsData.data.map((m) => (
+                    <tr key={m.id}>
+                      <td className="px-3 py-2 text-gray-600">{format(new Date(m.createdAt), 'dd MMM yyyy HH:mm', { locale: fr })}</td>
+                      <td className="px-3 py-2">{TYPE_MOUVEMENT_LABEL[m.type] ?? m.type}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{Number(m.montant).toLocaleString('fr-FR')}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-gray-600">{Number(m.soldeApres).toLocaleString('fr-FR')}</td>
+                      <td className="px-3 py-2 text-gray-500 max-w-xs truncate">{m.description ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Historique des réaffectations</h2>

@@ -98,6 +98,16 @@ export enum FrequenceCollecte {
   LIBRE = 'LIBRE',
 }
 
+export enum FrequenceCalculInteret {
+  MENSUEL = 'MENSUEL',
+  TRIMESTRIEL = 'TRIMESTRIEL',
+}
+
+export enum MethodeCalculInteret {
+  SIMPLE = 'SIMPLE',
+  CAPITALISE = 'CAPITALISE',
+}
+
 export enum StatutDemandeRetrait {
   EN_ATTENTE = 'EN_ATTENTE',
   VALIDEE = 'VALIDEE',
@@ -116,6 +126,13 @@ export enum StatutDossierCredit {
   REJETE = 'REJETE',
   ACTIF = 'ACTIF',
   CLOTURE = 'CLOTURE',
+  CONTENTIEUX = 'CONTENTIEUX',
+}
+
+export enum TypeCredit {
+  INDIVIDUEL = 'INDIVIDUEL',
+  GROUPE = 'GROUPE',
+  SOLIDAIRE = 'SOLIDAIRE',
 }
 
 export enum StatutEcheance {

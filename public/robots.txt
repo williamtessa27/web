@@ -1,0 +1,13 @@
+# Kimifinance — robots d'indexation
+User-agent: *
+Allow: /
+Allow: /contact
+Allow: /login
+Allow: /register
+
+# Zone app (après connexion) : optionnel de bloquer pour éviter pages dupliquées
+# Disallow: /dashboard
+# Disallow: /collecteurs
+# etc.
+
+Sitemap: /sitemap.xml

@@ -12,11 +12,18 @@ const apiClient = axios.create({
 // Flag pour éviter la boucle : un seul 401 déclenche logout + redirect
 let isHandling401 = false;
 
-// ─── Request : injecter le token ──────────────────
+// ─── Request : token + optionnellement ID entreprise (traçabilité uniquement) ───
+// Le backend détermine le tenant via le JWT (user.idEntreprise), pas via un header.
+// On envoie X-Entreprise-Id quand on l'a (login/register/me) pour logs ou debug.
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem(ApiConfig.storageKeys.token);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const state = useAuthStore.getState();
+  const entrepriseId = state.user?.idEntreprise ?? state.entreprise?.id ?? null;
+  if (entrepriseId) {
+    config.headers['X-Entreprise-Id'] = entrepriseId;
   }
   return config;
 });

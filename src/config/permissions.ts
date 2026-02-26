@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/core/store/auth.store';
 import { RoleUtilisateur } from '@/types';
 
 export function isSuperAdmin(role?: RoleUtilisateur): boolean {
@@ -10,6 +11,10 @@ export function isAdmin(role?: RoleUtilisateur): boolean {
 
 export function isGestionnaire(role?: RoleUtilisateur): boolean {
   return role === RoleUtilisateur.Gestionnaire;
+}
+
+export function isDirecteur(role?: RoleUtilisateur): boolean {
+  return role === RoleUtilisateur.Directeur;
 }
 
 export function isCollecteur(role?: RoleUtilisateur): boolean {
@@ -41,10 +46,15 @@ type Permission =
   | 'canManageUsers'
   | 'canManageCollecteurs'
   | 'canManageClients'
+  | 'canCreateClient'
+  | 'canUpdateClient'
+  | 'canValidateClient'
+  | 'canDeleteClient'
   | 'canManageProduits'
   | 'canManageZones'
   | 'canViewCollectes'
   | 'canCreateCollecte'
+  | 'canCreateDepotAgence'
   | 'canManageCommissions'
   | 'canViewDashboard'
   | 'canManageSouscriptions'
@@ -63,10 +73,15 @@ const permissionMap: Record<Permission, RoleUtilisateur[]> = {
   canManageUsers: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.ChefAgence],
   canManageCollecteurs: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit],
   canManageClients: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.Directeur, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit, RoleUtilisateur.Auditeur],
+  canCreateClient: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.ChefAgence],
+  canUpdateClient: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.ChefAgence, RoleUtilisateur.Directeur],
+  canValidateClient: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.ChefAgence, RoleUtilisateur.Directeur],
+  canDeleteClient: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise],
   canManageProduits: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.Directeur, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit, RoleUtilisateur.Auditeur],
   canManageZones: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.Directeur, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit, RoleUtilisateur.Auditeur],
   canViewCollectes: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.Directeur, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit, RoleUtilisateur.Caissier, RoleUtilisateur.Auditeur],
   canCreateCollecte: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit],
+  canCreateDepotAgence: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.ChefAgence, RoleUtilisateur.Caissier],
   canManageCommissions: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise],
   canManageSouscriptions: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.Directeur, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit, RoleUtilisateur.Auditeur],
   canManageTournees: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.ChefAgence, RoleUtilisateur.GestionnaireCredit],
@@ -79,8 +94,27 @@ const permissionMap: Record<Permission, RoleUtilisateur[]> = {
   canManageParametrage: [RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Directeur],
 };
 
+/**
+ * Vérifie si un rôle a une permission.
+ * Utilise la carte statique (fallback quand les permissions API ne sont pas encore chargées).
+ */
 export function hasPermission(role: RoleUtilisateur | undefined, permission: Permission): boolean {
   if (!role) return false;
   if (role === RoleUtilisateur.SuperAdmin) return true;
+  return permissionMap[permission]?.includes(role) ?? false;
+}
+
+/**
+ * Vérifie si l'utilisateur connecté a une permission.
+ * Source de vérité : matrice chargée depuis GET /permissions/me (page Paramètres > Permissions).
+ * Tant que permissionCodes n'est pas chargé, utilise la carte statique pour le rôle courant.
+ */
+export function useHasPermission(permission: Permission): boolean {
+  const user = useAuthStore((s) => s.user);
+  const permissionCodes = useAuthStore((s) => s.permissionCodes);
+  const role = user?.role;
+  if (!role) return false;
+  if (role === RoleUtilisateur.SuperAdmin) return true;
+  if (permissionCodes) return permissionCodes.includes(permission);
   return permissionMap[permission]?.includes(role) ?? false;
 }

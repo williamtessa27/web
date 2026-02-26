@@ -128,21 +128,19 @@ export default function NotificationDropdown({
           )}
         </div>
 
-        {list.length > 0 && (
-          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50">
-            <button
-              type="button"
-              onClick={() => {
-                navigate(AppRoutes.TOURNEES);
-                onClose();
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-primary-600 hover:text-primary-700"
-            >
-              <HiOutlineMap className="h-4 w-4" />
-              Voir les tournées
-            </button>
-          </div>
-        )}
+        <div className="px-4 py-2 border-t border-gray-100 bg-gray-50">
+          <button
+            type="button"
+            onClick={() => {
+              navigate(AppRoutes.NOTIFICATIONS);
+              onClose();
+            }}
+            className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-primary-600 hover:text-primary-700"
+          >
+            <HiOutlineBell className="h-4 w-4" />
+            Voir toutes les notifications
+          </button>
+        </div>
       </div>
     </>
   );

@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AppRoutes } from '@/config/routes.config';
+import ConnectionStatusBar from '@/components/ConnectionStatusBar';
 import { RoleUtilisateur } from '@/types';
+import { useAuthStore } from '@/core/store/auth.store';
 
 // Guards
 import AuthGuard from '@/core/guards/AuthGuard';
@@ -14,10 +16,12 @@ import AppLayout from '@/components/layout/AppLayout';
 
 // Pages
 import LandingPage from '@/pages/LandingPage';
+import ContactPage from '@/pages/contact/ContactPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import OnboardingPage from '@/pages/onboarding/OnboardingPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
+import DashboardAgencePage from '@/pages/dashboard/DashboardAgencePage';
 import UtilisateursPage from '@/pages/utilisateurs/UtilisateursPage';
 import CollecteursPage from '@/pages/collecteurs/CollecteursPage';
 import CreateCollecteurPage from '@/pages/collecteurs/CreateCollecteurPage';
@@ -37,24 +41,50 @@ import CreateSouscriptionPage from '@/pages/souscriptions/CreateSouscriptionPage
 import ZonesPage from '@/pages/zones/ZonesPage';
 import AgencesPage from '@/pages/agences/AgencesPage';
 import ComptabilitePage from '@/pages/comptabilite/ComptabilitePage';
+import PlanComptesPage from '@/pages/comptabilite/PlanComptesPage';
 import TourneesPage from '@/pages/tournees/TourneesPage';
 import TourneeDetailPage from '@/pages/tournees/TourneeDetailPage';
 import CloturePage from '@/pages/cloture/CloturePage';
+import CaisseAgencePage from '@/pages/caisse-agence/CaisseAgencePage';
 import AuditPage from '@/pages/audit/AuditPage';
 import CommissionsPage from '@/pages/commissions/CommissionsPage';
 import DemandesRetraitPage from '@/pages/demandes-retrait/DemandesRetraitPage';
+import EncoursEpargnePage from '@/pages/rapports/EncoursEpargnePage';
+import HistoriquePerformanceCollecteurPage from '@/pages/rapports/HistoriquePerformanceCollecteurPage';
+import CreateDepotAgencePage from '@/pages/epargne/CreateDepotAgencePage';
 import CreditsPage from '@/pages/credit/CreditsPage';
 import CreateDossierCreditPage from '@/pages/credit/CreateDossierCreditPage';
 import DossierCreditDetailPage from '@/pages/credit/DossierCreditDetailPage';
 import SuperAdminDashboard from '@/pages/super-admin/SuperAdminDashboard';
 import EntreprisesPage from '@/pages/super-admin/EntreprisesPage';
 import EntrepriseDetailPage from '@/pages/super-admin/EntrepriseDetailPage';
+import ParametresPlateformePage from '@/pages/super-admin/ParametresPlateformePage';
+import AbonnementsPage from '@/pages/super-admin/AbonnementsPage';
+import MesAbonnementsPage from '@/pages/abonnements/MesAbonnementsPage';
 import ParametresPage from '@/pages/parametres/ParametresPage';
 import PermissionsPage from '@/pages/parametres/PermissionsPage';
 import GarantiesPage from '@/pages/parametres/GarantiesPage';
 import PlansCollectePage from '@/pages/parametres/PlansCollectePage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 import UtilisateurDetailPage from '@/pages/utilisateurs/UtilisateurDetailPage';
+import NotificationsPage from '@/pages/notifications/NotificationsPage';
+
+/** Redirige le Super Admin vers le tableau de bord plateforme s'il accède à Dashboard ou Notifications. */
+function DashboardOrRedirect() {
+  const { user } = useAuthStore();
+  if (user?.role === RoleUtilisateur.SuperAdmin) {
+    return <Navigate to={AppRoutes.SUPER_ADMIN_DASHBOARD} replace />;
+  }
+  return <DashboardPage />;
+}
+
+function NotificationsOrRedirect() {
+  const { user } = useAuthStore();
+  if (user?.role === RoleUtilisateur.SuperAdmin) {
+    return <Navigate to={AppRoutes.SUPER_ADMIN_DASHBOARD} replace />;
+  }
+  return <NotificationsPage />;
+}
 
 export default function App() {
   return (
@@ -66,10 +96,12 @@ export default function App() {
           style: { borderRadius: '12px', fontSize: '14px' },
         }}
       />
+      <ConnectionStatusBar />
 
       <Routes>
-        {/* ─── Landing page publique ─────────────── */}
+        {/* ─── Landing & Contact (public) ─────────── */}
         <Route path={AppRoutes.HOME} element={<LandingPage />} />
+        <Route path={AppRoutes.CONTACT} element={<ContactPage />} />
 
         {/* ─── Routes publiques (Guest) ──────────── */}
         <Route element={<GuestGuard />}>
@@ -86,11 +118,18 @@ export default function App() {
         <Route element={<AuthGuard />}>
           <Route element={<OnboardingGuard />}>
             <Route element={<AppLayout />}>
-              {/* Dashboard */}
-              <Route path={AppRoutes.DASHBOARD} element={<DashboardPage />} />
+              {/* Dashboard (Super Admin redirigé vers tableau de bord plateforme) */}
+              <Route path={AppRoutes.DASHBOARD} element={<DashboardOrRedirect />} />
+              {/* Dashboard agence (Chef d'agence) */}
+              <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.ChefAgence]} />}>
+                <Route path={AppRoutes.DASHBOARD_AGENCE} element={<DashboardAgencePage />} />
+              </Route>
 
               {/* Profil (tout utilisateur connecté) */}
               <Route path={AppRoutes.PROFIL} element={<ProfilePage />} />
+
+              {/* Notifications (Super Admin redirigé vers tableau de bord plateforme) */}
+              <Route path={AppRoutes.NOTIFICATIONS} element={<NotificationsOrRedirect />} />
 
               {/* Paramètres entreprise (Admin entreprise uniquement) */}
               <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.AdminEntreprise, RoleUtilisateur.SuperAdmin]} />}>
@@ -98,6 +137,11 @@ export default function App() {
                 <Route path={AppRoutes.PERMISSIONS} element={<PermissionsPage />} />
                 <Route path={AppRoutes.GARANTIES} element={<GarantiesPage />} />
                 <Route path={AppRoutes.PLANS_COLLECTE} element={<PlansCollectePage />} />
+              </Route>
+
+              {/* Mes abonnements (Admin entreprise / Gestionnaire) */}
+              <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire]} />}>
+                <Route path={AppRoutes.MES_ABONNEMENTS} element={<MesAbonnementsPage />} />
               </Route>
 
               {/* Utilisateurs (Admin + Gestionnaire : liste et fiche pour accès depuis Collecteurs) */}
@@ -137,6 +181,7 @@ export default function App() {
                 <Route path={AppRoutes.ZONES} element={<ZonesPage />} />
                 <Route path={AppRoutes.AGENCES} element={<AgencesPage />} />
                 <Route path={AppRoutes.COMPTABILITE} element={<ComptabilitePage />} />
+                <Route path={AppRoutes.COMPTABILITE_PLAN} element={<PlanComptesPage />} />
                 <Route path={AppRoutes.TOURNEES} element={<TourneesPage />} />
                 <Route path={AppRoutes.TOURNEE_DETAIL} element={<TourneeDetailPage />} />
                 <Route path={AppRoutes.COMMISSIONS} element={<CommissionsPage />} />
@@ -152,6 +197,22 @@ export default function App() {
                 <Route path={AppRoutes.CLOTURE} element={<CloturePage />} />
               </Route>
 
+              {/* Caisse agence (Admin / Gestionnaire / Caissier) */}
+              <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.Caissier]} />}>
+                <Route path={AppRoutes.CAISSE_AGENCE} element={<CaisseAgencePage />} />
+              </Route>
+
+              {/* Encours épargne + Historique performance (Admin, Gestionnaire, Directeur) */}
+              <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.Directeur]} />}>
+                <Route path={AppRoutes.ENCOURS_EPARGNE} element={<EncoursEpargnePage />} />
+                <Route path={AppRoutes.RAPPORTS_PERFORMANCE} element={<HistoriquePerformanceCollecteurPage />} />
+              </Route>
+
+              {/* Dépôt épargne guichet (Caissier, Admin, Gestionnaire, ChefAgence) */}
+              <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire, RoleUtilisateur.ChefAgence, RoleUtilisateur.Caissier]} />}>
+                <Route path={AppRoutes.DEPOT_AGENCE} element={<CreateDepotAgencePage />} />
+              </Route>
+
               {/* Audit / Historique (Admin, Super Admin) */}
               <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise]} />}>
                 <Route path={AppRoutes.AUDIT} element={<AuditPage />} />
@@ -162,6 +223,8 @@ export default function App() {
                 <Route path={AppRoutes.SUPER_ADMIN_DASHBOARD} element={<SuperAdminDashboard />} />
                 <Route path={AppRoutes.SUPER_ADMIN_ENTREPRISES} element={<EntreprisesPage />} />
                 <Route path={AppRoutes.SUPER_ADMIN_ENTREPRISE_DETAIL} element={<EntrepriseDetailPage />} />
+                <Route path={AppRoutes.SUPER_ADMIN_ABONNEMENTS} element={<AbonnementsPage />} />
+                <Route path={AppRoutes.SUPER_ADMIN_PARAMETRES} element={<ParametresPlateformePage />} />
               </Route>
             </Route>
           </Route>

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   HiOutlinePlus,
@@ -7,19 +7,25 @@ import {
   HiOutlineEye,
   HiOutlineFunnel,
   HiOutlineDocumentArrowDown,
+  HiOutlineArrowDownTray,
 } from 'react-icons/hi2';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { collecteApi } from '@/core/api';
+import { collecteApi, exportCollectes, collecteurApi, clientApi } from '@/core/api';
+import type { ExportCollectesParams } from '@/core/api';
+import type { Collecteur } from '@/types';
 import { AppRoutes } from '@/config/routes.config';
-import type { Collecte, PaginatedResponse } from '@/types';
+import type { Collecte, Client, PaginatedResponse } from '@/types';
 import { StatutCollecte } from '@/types';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import EmptyState from '@/components/ui/EmptyState';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
+import Modal from '@/components/ui/Modal';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 
 const statutBadge = (statut: StatutCollecte) => {
   switch (statut) {
@@ -55,21 +61,74 @@ export default function CollectesPage() {
   const [filterAmountMin, setFilterAmountMin] = useState<string>('');
   const [filterAmountMax, setFilterAmountMax] = useState<string>('');
   const [filterStatut, setFilterStatut] = useState<string>('');
+  const [filterCollecteurId, setFilterCollecteurId] = useState<string>('');
 
-  useEffect(() => {
-    load();
-  }, []);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [collecteurs, setCollecteurs] = useState<Collecteur[]>([]);
+  const [clientsForExport, setClientsForExport] = useState<Client[]>([]);
+  const [exportForm, setExportForm] = useState<ExportCollectesParams>({
+    format: 'xlsx',
+    dateDebut: '',
+    dateFin: '',
+    search: '',
+    statut: '',
+    collecteurId: '',
+    clientId: '',
+    montantMin: undefined,
+    montantMax: undefined,
+  });
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await collecteApi.list({ limit: 200, sortBy: 'dateCollecte', sortOrder: 'DESC' });
+      const params: Record<string, string | number | undefined> = {
+        limit: 200,
+        sortBy: 'dateCollecte',
+        sortOrder: 'DESC',
+      };
+      if (filterDateFrom) params.dateDebut = filterDateFrom;
+      if (filterDateTo) params.dateFin = filterDateTo;
+      if (filterStatut) params.statut = filterStatut;
+      if (filterClientId) params.clientId = filterClientId;
+      if (filterCollecteurId) params.collecteurId = filterCollecteurId;
+      const min = filterAmountMin ? Number(filterAmountMin) : undefined;
+      const max = filterAmountMax ? Number(filterAmountMax) : undefined;
+      if (min != null && !Number.isNaN(min)) params.montantMin = min;
+      if (max != null && !Number.isNaN(max)) params.montantMax = max;
+      const res = await collecteApi.list(params);
       setData(res);
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    filterDateFrom,
+    filterDateTo,
+    filterStatut,
+    filterClientId,
+    filterCollecteurId,
+    filterAmountMin,
+    filterAmountMax,
+  ]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    if (exportModalOpen) {
+      collecteurApi.list({ limit: 300 }).then((r) => setCollecteurs(r.data ?? [])).catch(() => setCollecteurs([]));
+      clientApi.list({ limit: 500 }).then((r) => setClientsForExport(r.data ?? [])).catch(() => setClientsForExport([]));
+    }
+  }, [exportModalOpen]);
+
+  useEffect(() => {
+    if (showFilters && collecteurs.length === 0) {
+      collecteurApi.list({ limit: 300 }).then((r) => setCollecteurs(r.data ?? [])).catch(() => setCollecteurs([]));
+    }
+  }, [showFilters, collecteurs.length]);
 
   const handleValider = async (id: string) => {
     setActionId(id);
@@ -118,7 +177,8 @@ export default function CollectesPage() {
     !!filterDateTo ||
     !!filterAmountMin ||
     !!filterAmountMax ||
-    !!filterStatut;
+    !!filterStatut ||
+    !!filterCollecteurId;
 
   const clearFilters = () => {
     setFilterClientId('');
@@ -127,7 +187,35 @@ export default function CollectesPage() {
     setFilterAmountMin('');
     setFilterAmountMax('');
     setFilterStatut('');
+    setFilterCollecteurId('');
   };
+
+  const handleExport = useCallback(() => setExportModalOpen(true), []);
+
+  const handleExportSubmit = useCallback(async () => {
+    setExportLoading(true);
+    try {
+      const params: ExportCollectesParams = {
+        format: exportForm.format ?? 'xlsx',
+        dateDebut: exportForm.dateDebut || undefined,
+        dateFin: exportForm.dateFin || undefined,
+        search: exportForm.search || undefined,
+        statut: exportForm.statut || undefined,
+        collecteurId: exportForm.collecteurId || undefined,
+        clientId: exportForm.clientId || undefined,
+        montantMin: exportForm.montantMin,
+        montantMax: exportForm.montantMax,
+      };
+      const filename = await exportCollectes(params);
+      setExportModalOpen(false);
+      toast.success(`Export téléchargé : ${filename}`);
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'Erreur lors de l\'export';
+      toast.error(msg);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [exportForm]);
 
   const uniqueClients = useMemo(() => {
     if (!data?.data) return [];
@@ -148,29 +236,7 @@ export default function CollectesPage() {
 
   const filteredAndGrouped = useMemo(() => {
     if (!data?.data?.length) return [];
-    let list = [...data.data];
-
-    if (filterClientId) {
-      list = list.filter((c) => c.idClient === filterClientId);
-    }
-    if (filterDateFrom) {
-      list = list.filter((c) => getDateKey(c) >= filterDateFrom);
-    }
-    if (filterDateTo) {
-      list = list.filter((c) => getDateKey(c) <= filterDateTo);
-    }
-    const minAmount = filterAmountMin ? Number(filterAmountMin) : NaN;
-    if (!Number.isNaN(minAmount)) {
-      list = list.filter((c) => Number(c.montant) >= minAmount);
-    }
-    const maxAmount = filterAmountMax ? Number(filterAmountMax) : NaN;
-    if (!Number.isNaN(maxAmount)) {
-      list = list.filter((c) => Number(c.montant) <= maxAmount);
-    }
-    if (filterStatut) {
-      list = list.filter((c) => c.statut === filterStatut);
-    }
-
+    const list = data.data;
     const byDate = new Map<string, Collecte[]>();
     for (const c of list) {
       const key = getDateKey(c);
@@ -179,7 +245,7 @@ export default function CollectesPage() {
     }
     const keys = Array.from(byDate.keys()).sort((a, b) => b.localeCompare(a));
     return keys.map((key) => ({ dateKey: key, collectes: byDate.get(key)! }));
-  }, [data?.data, filterClientId, filterDateFrom, filterDateTo, filterAmountMin, filterAmountMax, filterStatut]);
+  }, [data?.data]);
 
   if (loading) return <PageLoader />;
 
@@ -210,6 +276,10 @@ export default function CollectesPage() {
               </span>
             )}
           </Button>
+          <Button variant="secondary" onClick={handleExport} title="Exporter les collectes">
+            <HiOutlineArrowDownTray className="h-4 w-4" />
+            Exporter
+          </Button>
           <Link to={AppRoutes.COLLECTE_CREATE}>
             <Button>
               <HiOutlinePlus className="h-4 w-4" /> Nouvelle collecte
@@ -220,7 +290,7 @@ export default function CollectesPage() {
 
       {showFilters && (
         <Card className="bg-gray-50">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Client</label>
               <select
@@ -232,6 +302,21 @@ export default function CollectesPage() {
                 {uniqueClients.map(({ id, label }) => (
                   <option key={id} value={id}>
                     {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Collecteur</label>
+              <select
+                value={filterCollecteurId}
+                onChange={(e) => setFilterCollecteurId(e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">Tous</option>
+                {collecteurs.map((col) => (
+                  <option key={col.id} value={col.id}>
+                    {col.utilisateur ? `${col.utilisateur.prenom || ''} ${col.utilisateur.nom || ''}`.trim() || col.codeCollecteur : col.codeCollecteur}
                   </option>
                 ))}
               </select>
@@ -425,6 +510,122 @@ export default function CollectesPage() {
           </div>
         </Card>
       )}
+
+      <Modal
+        open={exportModalOpen}
+        onClose={() => !exportLoading && setExportModalOpen(false)}
+        title="Exporter les collectes"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Choisissez le format et les filtres optionnels. Les données sont exportées depuis la base (jusqu'à 30 000 lignes).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Format"
+              value={exportForm.format ?? 'xlsx'}
+              onChange={(e) => setExportForm((f) => ({ ...f, format: e.target.value as 'xlsx' | 'csv' }))}
+              options={[
+                { value: 'xlsx', label: 'Excel (.xlsx)' },
+                { value: 'csv', label: 'CSV' },
+              ]}
+            />
+            <Select
+              label="Statut"
+              value={exportForm.statut ?? ''}
+              onChange={(e) => setExportForm((f) => ({ ...f, statut: e.target.value || undefined }))}
+              options={[
+                { value: '', label: 'Tous' },
+                { value: StatutCollecte.VALIDEE, label: 'Validée' },
+                { value: StatutCollecte.EN_ATTENTE, label: 'En attente' },
+                { value: StatutCollecte.REJETEE, label: 'Rejetée' },
+                { value: StatutCollecte.ANNULEE, label: 'Annulée' },
+              ]}
+            />
+            <Select
+              label="Collecteur"
+              value={exportForm.collecteurId ?? ''}
+              onChange={(e) => setExportForm((f) => ({ ...f, collecteurId: e.target.value || undefined }))}
+              options={[
+                { value: '', label: 'Tous' },
+                ...collecteurs.map((col) => ({
+                  value: col.id,
+                  label: col.utilisateur
+                    ? `${col.utilisateur.prenom || ''} ${col.utilisateur.nom || ''}`.trim() || col.codeCollecteur
+                    : col.codeCollecteur,
+                })),
+              ]}
+            />
+            <Select
+              label="Client"
+              value={exportForm.clientId ?? ''}
+              onChange={(e) => setExportForm((f) => ({ ...f, clientId: e.target.value || undefined }))}
+              options={[
+                { value: '', label: 'Tous' },
+                ...clientsForExport.map((cl) => ({
+                  value: cl.id,
+                  label: [cl.nom, cl.prenom].filter(Boolean).join(' ') || cl.codeClient || cl.id,
+                })),
+              ]}
+            />
+          </div>
+          <Input
+            label="Recherche (nom, prénom, code client)"
+            placeholder="Filtrer par texte…"
+            value={exportForm.search ?? ''}
+            onChange={(e) => setExportForm((f) => ({ ...f, search: e.target.value }))}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Date collecte (début)"
+              type="date"
+              value={exportForm.dateDebut ?? ''}
+              onChange={(e) => setExportForm((f) => ({ ...f, dateDebut: e.target.value }))}
+            />
+            <Input
+              label="Date collecte (fin)"
+              type="date"
+              value={exportForm.dateFin ?? ''}
+              onChange={(e) => setExportForm((f) => ({ ...f, dateFin: e.target.value }))}
+            />
+            <Input
+              label="Montant min (XAF)"
+              type="number"
+              min={0}
+              placeholder="Ex: 1000"
+              value={exportForm.montantMin ?? ''}
+              onChange={(e) =>
+                setExportForm((f) => ({
+                  ...f,
+                  montantMin: e.target.value === '' ? undefined : Number(e.target.value),
+                }))
+              }
+            />
+            <Input
+              label="Montant max (XAF)"
+              type="number"
+              min={0}
+              placeholder="Ex: 50000"
+              value={exportForm.montantMax ?? ''}
+              onChange={(e) =>
+                setExportForm((f) => ({
+                  ...f,
+                  montantMax: e.target.value === '' ? undefined : Number(e.target.value),
+                }))
+              }
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setExportModalOpen(false)} disabled={exportLoading}>
+              Annuler
+            </Button>
+            <Button onClick={handleExportSubmit} disabled={exportLoading}>
+              {exportLoading ? 'Export en cours…' : 'Télécharger l\'export'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

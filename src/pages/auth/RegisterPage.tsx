@@ -4,12 +4,18 @@ import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/core/store/auth.store';
 import { AppRoutes } from '@/config/routes.config';
+import { useSEO } from '@/hooks/useSEO';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import PhoneInput from '@/components/ui/PhoneInput';
 import type { RegisterRequest } from '@/types';
 
 export default function RegisterPage() {
+  useSEO({
+    title: 'Créer un compte',
+    description: 'Inscrivez votre entreprise sur Kimifinance et commencez à gérer vos collectes de paiements en temps réel.',
+  });
+
   const { register: registerAction } = useAuthStore();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);

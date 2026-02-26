@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { HiOutlinePlus, HiOutlineShieldCheck, HiOutlineDocumentText } from 'react-icons/hi2';
-import { typeGarantieApi, typeAssuranceApi } from '@/core/api';
+import { HiOutlinePlus, HiOutlineShieldCheck, HiOutlineDocumentText, HiOutlineChartBar } from 'react-icons/hi2';
+import { typeGarantieApi, typeAssuranceApi, garantieApi } from '@/core/api';
 import type { TypeGarantie, TypeAssurance } from '@/core/api';
 import { AppRoutes } from '@/config/routes.config';
 import Card from '@/components/ui/Card';
@@ -13,6 +13,10 @@ import { PageLoader } from '@/components/ui/LoadingSpinner';
 export default function GarantiesPage() {
   const [typesGarantie, setTypesGarantie] = useState<TypeGarantie[]>([]);
   const [typesAssurance, setTypesAssurance] = useState<TypeAssurance[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<{
+    garanties: { nbGarantiesEnAttente: number; nbGarantiesValidees: number; nbGarantiesExpirees: number; nbDossiersAvecGarantiesSansValidee: number };
+    assurances: { nbAssurancesActives: number; nbAssurancesExpirees: number; nbAssurancesExpirantSous30Jours: number };
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalType, setModalType] = useState<'tg' | 'ta' | null>(null);
   const [editingTg, setEditingTg] = useState<TypeGarantie | null>(null);
@@ -26,10 +30,12 @@ export default function GarantiesPage() {
     Promise.all([
       typeGarantieApi.list(false),
       typeAssuranceApi.list(false),
+      garantieApi.getDashboardStats().catch(() => null),
     ])
-      .then(([tg, ta]) => {
+      .then(([tg, ta, stats]) => {
         setTypesGarantie(tg);
         setTypesAssurance(ta);
+        setDashboardStats(stats ?? null);
       })
       .catch(() => toast.error('Erreur chargement'))
       .finally(() => setLoading(false));
@@ -127,6 +133,33 @@ export default function GarantiesPage() {
         <h1 className="text-2xl font-bold text-gray-900">Garanties & Assurances</h1>
         <p className="text-gray-500 mt-1">Paramétrage des types de garanties et d&apos;assurances (Sprint 10)</p>
       </div>
+
+      {dashboardStats && (
+        <Card>
+          <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+            <HiOutlineChartBar className="h-5 w-5" />
+            Indicateurs risques & couverture
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500">Garanties en attente</p>
+              <p className="font-semibold text-lg">{dashboardStats.garanties.nbGarantiesEnAttente}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Garanties validées</p>
+              <p className="font-semibold text-lg text-green-600">{dashboardStats.garanties.nbGarantiesValidees}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Dossiers sans garantie validée</p>
+              <p className="font-semibold text-lg text-amber-600">{dashboardStats.garanties.nbDossiersAvecGarantiesSansValidee}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Assurances expirant sous 30 j</p>
+              <p className="font-semibold text-lg text-orange-600">{dashboardStats.assurances.nbAssurancesExpirantSous30Jours}</p>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="flex items-center justify-between mb-4">

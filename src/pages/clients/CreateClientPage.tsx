@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { clientApi, collecteurApi, zoneApi, produitApi, agenceApi } from '@/core/api';
 import type { CreateClientRequest, Collecteur, Zone, Produit, Agence } from '@/types';
 import { AppRoutes } from '@/config/routes.config';
+import { useHasPermission } from '@/config/permissions';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import PhoneInput from '@/components/ui/PhoneInput';
@@ -47,7 +48,14 @@ const TYPE_CLIENT_OPTIONS = [
 
 export default function CreateClientPage() {
   const navigate = useNavigate();
+  const canCreate = useHasPermission('canCreateClient');
   const [step, setStep] = useState(1);
+
+  useEffect(() => {
+    if (!canCreate) {
+      navigate(AppRoutes.CLIENTS, { replace: true });
+    }
+  }, [canCreate, navigate]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [collecteurs, setCollecteurs] = useState<Collecteur[]>([]);
   const [agences, setAgences] = useState<Agence[]>([]);

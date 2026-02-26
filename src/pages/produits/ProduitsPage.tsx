@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { HiOutlinePlus, HiOutlinePencilSquare, HiOutlineTrash, HiOutlineCalculator } from 'react-icons/hi2';
 import { produitApi } from '@/core/api';
+import { useAuthStore } from '@/core/store/auth.store';
 import type { Produit, SimulationEpargneResult } from '@/types';
 import { TypeProduit } from '@/types';
 import { AppRoutes } from '@/config/routes.config';
@@ -26,7 +27,11 @@ const typeBadge = (type: TypeProduit) => {
   return <Badge variant={variant}>{label}</Badge>;
 };
 
+const TYPES_EPARGNE: TypeProduit[] = [TypeProduit.EPARGNE, TypeProduit.EPARGNE_BLOQUEE, TypeProduit.EPARGNE_PROGRAMMEE];
+
 export default function ProduitsPage() {
+  const { entreprise } = useAuthStore();
+  const tauxInteret = Number(entreprise?.tauxInteretEpargne ?? 0);
   const [produits, setProduits] = useState<Produit[]>([]);
   const [loading, setLoading] = useState(true);
   const [produitToDelete, setProduitToDelete] = useState<Produit | null>(null);
@@ -138,7 +143,7 @@ export default function ProduitsPage() {
                 <div className="flex justify-between"><span className="text-gray-500">Montant/jour</span><span className="font-medium">{Number(p.montantJournalier).toLocaleString('fr-FR')} XAF</span></div>
                 {p.dureeJours && <div className="flex justify-between"><span className="text-gray-500">Durée</span><span className="font-medium">{p.dureeJours} jours</span></div>}
                 {p.dureeBlocageJours != null && p.dureeBlocageJours > 0 && <div className="flex justify-between"><span className="text-gray-500">Blocage</span><span className="font-medium">{p.dureeBlocageJours} jours</span></div>}
-                {p.tauxInteret != null && p.tauxInteret > 0 && <div className="flex justify-between"><span className="text-gray-500">Taux intérêt</span><span className="font-medium">{p.tauxInteret} %</span></div>}
+                {TYPES_EPARGNE.includes(p.type) && tauxInteret > 0 && <div className="flex justify-between"><span className="text-gray-500">Taux intérêt</span><span className="font-medium">{tauxInteret} %</span></div>}
                 {p.objectifEpargne && <div className="flex justify-between"><span className="text-gray-500">Objectif</span><span className="font-medium truncate max-w-[120px]" title={p.objectifEpargne}>{p.objectifEpargne}</span></div>}
                 {p.montantCible && <div className="flex justify-between"><span className="text-gray-500">Cible</span><span className="font-medium">{Number(p.montantCible).toLocaleString('fr-FR')} XAF</span></div>}
                 <div className="flex justify-between"><span className="text-gray-500">Retenue fin de plan</span><span className="font-medium">{Number(p.fraisRetenue).toLocaleString('fr-FR')} XAF</span></div>

@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
 
 /**
  * Exporte des données en fichier Excel (.xlsx).
@@ -31,4 +32,41 @@ export function exportToCsv<T extends Record<string, unknown>>(
   a.download = `${filename}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Exporte un rapport simple en PDF (titre + lignes label/valeur).
+ * Utilisable pour encours épargne, synthèse collectes, etc.
+ */
+export function exportToPdf(
+  title: string,
+  rows: { label: string; value: string }[],
+  filename: string,
+): void {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  let y = 20;
+
+  doc.setFontSize(16);
+  doc.text(title, 14, y);
+  y += 12;
+
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, 14, y);
+  y += 14;
+
+  doc.setTextColor(0, 0, 0);
+  rows.forEach((r) => {
+    if (y > 270) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.text(r.label, 14, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(r.value, 80, y);
+    y += 8;
+  });
+
+  doc.save(`${filename}.pdf`);
 }

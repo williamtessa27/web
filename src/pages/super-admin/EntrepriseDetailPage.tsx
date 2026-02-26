@@ -11,6 +11,9 @@ import {
   HiOutlineLockClosed,
   HiOutlineLockOpen,
   HiOutlinePlayCircle,
+  HiOutlineBanknotes,
+  HiOutlineCreditCard,
+  HiOutlineCalendar,
 } from 'react-icons/hi2';
 import { entrepriseApi, utilisateurApi } from '@/core/api';
 import type { Entreprise, Utilisateur, PaginatedResponse } from '@/types';
@@ -24,7 +27,18 @@ import EmptyState from '@/components/ui/EmptyState';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 
 type EntrepriseDetail = Entreprise & {
-  _stats: { utilisateurs: number; collecteurs: number; clients: number };
+  _stats: {
+    utilisateurs: number;
+    collecteurs: number;
+    clients: number;
+    encoursEpargneTotal?: number;
+    nbSouscriptionsEpargne?: number;
+    encoursCreditTotal?: number;
+    nbCreditsActifs?: number;
+    nbEcheancesEnRetard?: number;
+    impayesTotal?: number;
+    tauxRemboursement?: number;
+  };
 };
 
 const statutLabels: Record<StatutEntreprise, string> = {
@@ -73,6 +87,8 @@ export default function EntrepriseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [usersLoading, setUsersLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [dateFinEssaiEdit, setDateFinEssaiEdit] = useState<string>('');
+  const [savingDateFinEssai, setSavingDateFinEssai] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -140,6 +156,26 @@ export default function EntrepriseDetailPage() {
     }
   };
 
+  const handleSetDateFinEssai = async () => {
+    if (!id || !entreprise) return;
+    const raw = dateFinEssaiEdit.trim();
+    if (!raw) {
+      toast.error('Veuillez choisir une date');
+      return;
+    }
+    setSavingDateFinEssai(true);
+    try {
+      const updated = await entrepriseApi.update(id, { dateFinEssai: raw });
+      setEntreprise((prev) => (prev ? { ...prev, ...updated } : null));
+      setDateFinEssaiEdit('');
+      toast.success('Date de fin d\'essai enregistrée');
+    } catch {
+      toast.error('Erreur lors de l\'enregistrement');
+    } finally {
+      setSavingDateFinEssai(false);
+    }
+  };
+
   const isEnAttente = entreprise?.statut === StatutEntreprise.EN_ATTENTE;
   const isBloquee = entreprise?.statut === StatutEntreprise.BLOQUEE;
 
@@ -161,7 +197,20 @@ export default function EntrepriseDetailPage() {
     );
   }
 
-  const stats = entreprise._stats ?? { utilisateurs: 0, collecteurs: 0, clients: 0 };
+  const stats = entreprise._stats ?? {
+    utilisateurs: 0,
+    collecteurs: 0,
+    clients: 0,
+    encoursEpargneTotal: 0,
+    nbSouscriptionsEpargne: 0,
+    encoursCreditTotal: 0,
+    nbCreditsActifs: 0,
+    nbEcheancesEnRetard: 0,
+    impayesTotal: 0,
+    tauxRemboursement: 0,
+  };
+  const formatMoney = (n: number) =>
+    new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 0 }).format(n);
 
   return (
     <div className="space-y-6">
@@ -198,7 +247,7 @@ export default function EntrepriseDetailPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           title="Utilisateurs"
           value={stats.utilisateurs}
@@ -217,7 +266,42 @@ export default function EntrepriseDetailPage() {
           icon={<HiOutlineBuildingOffice2 className="h-6 w-6" />}
           color="green"
         />
+        <StatCard
+          title="Encours épargne"
+          value={formatMoney(stats.encoursEpargneTotal ?? 0)}
+          icon={<HiOutlineBanknotes className="h-6 w-6" />}
+          color="green"
+        />
+        <StatCard
+          title="Encours crédit"
+          value={formatMoney(stats.encoursCreditTotal ?? 0)}
+          icon={<HiOutlineCreditCard className="h-6 w-6" />}
+          color="orange"
+        />
+        <StatCard
+          title="Crédits actifs"
+          value={stats.nbCreditsActifs ?? 0}
+          icon={<HiOutlineCreditCard className="h-6 w-6" />}
+          color="blue"
+        />
       </div>
+      {/* Indicateurs crédit (retards, impayés, taux remboursement) */}
+      {(stats.nbEcheancesEnRetard != null || stats.impayesTotal != null || stats.tauxRemboursement != null) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="p-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Échéances en retard</p>
+            <p className="mt-1 text-lg font-semibold text-gray-900">{stats.nbEcheancesEnRetard ?? 0}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Impayés total</p>
+            <p className="mt-1 text-lg font-semibold text-gray-900">{formatMoney(stats.impayesTotal ?? 0)}</p>
+          </Card>
+          <Card className="p-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Taux remboursement</p>
+            <p className="mt-1 text-lg font-semibold text-gray-900">{stats.tauxRemboursement ?? 0} %</p>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Enterprise info card */}
@@ -241,6 +325,13 @@ export default function EntrepriseDetailPage() {
               <InfoRow label="Taux commission défaut" value={entreprise.tauxCommissionDefaut != null ? `${entreprise.tauxCommissionDefaut}%` : undefined} />
               <InfoRow label="Date création entreprise" value={entreprise.dateCreationEntreprise ? format(new Date(entreprise.dateCreationEntreprise), 'dd MMM yyyy', { locale: fr }) : undefined} />
               <InfoRow label="Date inscription" value={entreprise.createdAt ? format(new Date(entreprise.createdAt), 'dd MMM yyyy', { locale: fr }) : undefined} />
+              <InfoRow
+                label="Fin période d'essai"
+                value={
+                  entreprise.dateFinEssai ? format(new Date(entreprise.dateFinEssai), 'dd MMM yyyy', { locale: fr }) : 'Non définie'
+                }
+                className="sm:col-span-2"
+              />
             </div>
           </Card>
         </div>
@@ -249,7 +340,28 @@ export default function EntrepriseDetailPage() {
         <div>
           <Card className="rounded-2xl">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
-            <div className="space-y-2">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Période d'essai</p>
+                <div className="flex gap-2 flex-wrap">
+                  <input
+                    type="date"
+                    value={dateFinEssaiEdit}
+                    onChange={(e) => setDateFinEssaiEdit(e.target.value)}
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleSetDateFinEssai}
+                    disabled={savingDateFinEssai || !dateFinEssaiEdit.trim()}
+                    isLoading={savingDateFinEssai}
+                  >
+                    <HiOutlineCalendar className="h-4 w-4" />
+                    Définir fin essai
+                  </Button>
+                </div>
+              </div>
               {isEnAttente ? (
                 <Button
                   variant="primary"

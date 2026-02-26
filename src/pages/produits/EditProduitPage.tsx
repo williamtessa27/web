@@ -23,7 +23,6 @@ interface EditProduitForm {
   montantJournalier: string;
   fraisRetenue: string;
   dureeBlocageJours: string;
-  tauxInteret: string;
   objectifEpargne: string;
   actif: boolean;
 }
@@ -76,7 +75,6 @@ export default function EditProduitPage() {
           montantJournalier: String(p.montantJournalier ?? ''),
           fraisRetenue: String(p.fraisRetenue ?? 0),
           dureeBlocageJours: p.dureeBlocageJours != null ? String(p.dureeBlocageJours) : '',
-          tauxInteret: p.tauxInteret != null ? String(p.tauxInteret) : '0',
           objectifEpargne: p.objectifEpargne ?? '',
           actif: p.actif !== false,
         });
@@ -114,7 +112,6 @@ export default function EditProduitPage() {
         montantJournalier: Number(data.montantJournalier),
         fraisRetenue: Number(data.fraisRetenue),
         ...(data.dureeBlocageJours.trim() ? { dureeBlocageJours: Number(data.dureeBlocageJours) } : {}),
-        ...(data.tauxInteret !== '' ? { tauxInteret: Number(data.tauxInteret) } : {}),
         ...(data.objectifEpargne?.trim() ? { objectifEpargne: data.objectifEpargne.trim() } : {}),
         actif: data.actif,
       });
@@ -250,16 +247,6 @@ export default function EditProduitPage() {
                   {...register('dureeBlocageJours')}
                 />
               )}
-              {(selectedType === 'EPARGNE_BLOQUEE' || selectedType === 'EPARGNE') && (
-                <Input
-                  label="Taux d'intérêt annuel (%)"
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  placeholder="0"
-                  {...register('tauxInteret')}
-                />
-              )}
               {selectedType === 'EPARGNE_PROGRAMMEE' && (
                 <Input
                   label="Objectif épargne"
@@ -267,6 +254,9 @@ export default function EditProduitPage() {
                   {...register('objectifEpargne')}
                 />
               )}
+              <p className="md:col-span-3 text-xs text-gray-500">
+                Taux d&apos;intérêt, fréquence de collecte et pénalité retrait anticipé sont définis dans Paramètres (entreprise).
+              </p>
             </div>
           )}
 

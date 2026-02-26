@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '@/core/store/auth.store';
 import { isSuperAdmin } from '@/config/permissions';
 import { AppRoutes } from '@/config/routes.config';
+import { useSEO } from '@/hooks/useSEO';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import PhoneInput from '@/components/ui/PhoneInput';
@@ -19,6 +20,8 @@ interface LoginForm {
 }
 
 export default function LoginPage() {
+  useSEO({ title: 'Connexion', description: 'Connectez-vous à votre espace Kimifinance pour gérer vos collectes et votre équipe.' });
+
   const { login } = useAuthStore();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);

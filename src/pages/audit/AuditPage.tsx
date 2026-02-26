@@ -3,8 +3,8 @@ import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { HiOutlineChevronRight, HiOutlineChevronDown } from 'react-icons/hi2';
-import { auditApi } from '@/core/api';
-import type { AuditLog, PaginatedResponse } from '@/types';
+import { auditApi, utilisateurApi, agenceApi } from '@/core/api';
+import type { AuditLog, PaginatedResponse, Utilisateur, Agence } from '@/types';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -44,6 +44,7 @@ const ACTION_LABELS: Record<string, string> = {
   CHANGEMENT_AGENCE: 'Changement d\'agence',
   CANCEL: 'Annulation',
   SOFT_DELETE: 'Suppression',
+  EXPORT: 'Export',
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -53,7 +54,13 @@ const ENTITY_LABELS: Record<string, string> = {
   COLLECTE: 'Collecte',
   CLOTURE: 'Clôture',
   DEMANDE_RETRAIT: 'Demande de retrait',
+  DOSSIER_CREDIT: 'Dossier crédit',
+  DEPOT_AGENCE: 'Dépôt agence',
+  EXPORT_RAPPORT: 'Export rapport',
 };
+
+/** E6.6.2 — Types d'entités pour la vue « Audit financier ». */
+const AUDIT_FINANCIER_ENTITY_TYPES = 'CLOTURE,COLLECTE,DEMANDE_RETRAIT,DOSSIER_CREDIT,DEPOT_AGENCE';
 
 export default function AuditPage() {
   const [data, setData] = useState<PaginatedResponse<AuditLog> | null>(null);
@@ -61,12 +68,22 @@ export default function AuditPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [entityType, setEntityType] = useState('');
+  const [vueFinanciere, setVueFinanciere] = useState(false);
   const [action, setAction] = useState('');
+  const [idUtilisateur, setIdUtilisateur] = useState('');
+  const [idAgence, setIdAgence] = useState('');
   const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [utilisateurs, setUtilisateurs] = useState<Utilisateur[]>([]);
+  const [agences, setAgences] = useState<Agence[]>([]);
   /** Jours ouverts (dropdowns). Vide = tous fermés par défaut. */
   const [openDays, setOpenDays] = useState<Set<string>>(() => new Set());
   const limit = 20;
+
+  useEffect(() => {
+    utilisateurApi.list({ limit: '200' }).then((r) => setUtilisateurs(r.data ?? [])).catch(() => setUtilisateurs([]));
+    agenceApi.list().then((r) => setAgences(Array.isArray(r) ? r : [])).catch(() => setAgences([]));
+  }, []);
 
   const toggleDay = useCallback((dateKey: string) => {
     setOpenDays((prev) => {
@@ -83,8 +100,11 @@ export default function AuditPage() {
       const params: Record<string, string | number> = { page, limit, sortBy: 'createdAt', sortOrder: 'DESC' };
       if (dateFrom) params.dateFrom = dateFrom;
       if (dateTo) params.dateTo = dateTo;
-      if (entityType) params.entityType = entityType;
+      if (vueFinanciere) params.entityTypes = AUDIT_FINANCIER_ENTITY_TYPES;
+      else if (entityType) params.entityType = entityType;
       if (action) params.action = action;
+      if (idUtilisateur) params.idUtilisateur = idUtilisateur;
+      if (idAgence) params.idAgence = idAgence;
       const res = await auditApi.list(params);
       setData(res);
     } catch (e: any) {
@@ -97,7 +117,7 @@ export default function AuditPage() {
 
   useEffect(() => {
     load();
-  }, [page]);
+  }, [page, vueFinanciere, idUtilisateur, idAgence]);
 
   const handleFilter = (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,12 +182,25 @@ export default function AuditPage() {
               onChange={(e) => setDateTo(e.target.value)}
             />
           </div>
+          <label className="flex items-center gap-2 h-10 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={vueFinanciere}
+              onChange={(e) => {
+                setVueFinanciere(e.target.checked);
+                if (e.target.checked) setEntityType('');
+              }}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Vue audit financier</span>
+          </label>
           <div className="min-w-[160px]">
             <label className="block text-sm font-medium text-gray-700 mb-1">Type d&apos;entité</label>
             <select
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               value={entityType}
-              onChange={(e) => setEntityType(e.target.value)}
+              onChange={(e) => { setEntityType(e.target.value); if (e.target.value) setVueFinanciere(false); }}
+              disabled={vueFinanciere}
             >
               <option value="">Tous</option>
               {Object.entries(ENTITY_LABELS).map(([k, v]) => (
@@ -185,6 +218,34 @@ export default function AuditPage() {
               <option value="">Toutes</option>
               {Object.entries(ACTION_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[180px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Utilisateur</label>
+            <select
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              value={idUtilisateur}
+              onChange={(e) => setIdUtilisateur(e.target.value)}
+            >
+              <option value="">Tous</option>
+              {utilisateurs.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {[u.prenom, u.nom].filter(Boolean).join(' ') || u.email}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[160px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Agence</label>
+            <select
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              value={idAgence}
+              onChange={(e) => setIdAgence(e.target.value)}
+            >
+              <option value="">Toutes</option>
+              {agences.map((a) => (
+                <option key={a.id} value={a.id}>{a.nom}</option>
               ))}
             </select>
           </div>

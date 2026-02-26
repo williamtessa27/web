@@ -64,6 +64,7 @@ export default function PermissionsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Gestion des permissions</h1>
         <p className="mt-1 text-sm text-gray-500">
           Définir les permissions accordées à chaque rôle. SuperAdmin conserve tous les droits.
+          Les cases cochées ici pilotent le CRUD (boutons Créer, Modifier, Valider, Supprimer) dans chaque rubrique de l&apos;application.
         </p>
       </div>
 

@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/core/store/auth.store';
-import { entrepriseApi } from '@/core/api';
+import { entrepriseApi, authApi, type SessionAdminItem } from '@/core/api';
+import { RoleUtilisateur } from '@/types';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import PhoneInput from '@/components/ui/PhoneInput';
@@ -10,7 +11,7 @@ import Select from '@/components/ui/Select';
 import Card from '@/components/ui/Card';
 import ImageUpload from '@/components/ui/ImageUpload';
 import type { ParametresEntrepriseRequest } from '@/types';
-import { FrequenceCollecte } from '@/types/enums';
+import { FrequenceCollecte, FrequenceCalculInteret, MethodeCalculInteret } from '@/types/enums';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 
 const SECTEURS = [
@@ -34,10 +35,15 @@ const DEVISES = [
 ];
 
 export default function ParametresPage() {
-  const { entreprise: storeEntreprise, setEntreprise } = useAuthStore();
+  const { user, entreprise: storeEntreprise, setEntreprise } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savingLogo, setSavingLogo] = useState(false);
+  const [adminSessions, setAdminSessions] = useState<SessionAdminItem[]>([]);
+  const [adminSessionsLoading, setAdminSessionsLoading] = useState(false);
+  const [revokingUserId, setRevokingUserId] = useState<string | null>(null);
+  const isAdminOrSuperAdmin =
+    user?.role === RoleUtilisateur.AdminEntreprise || user?.role === RoleUtilisateur.SuperAdmin;
 
   /** Enregistre le logo dès la fin de l'upload (évite de perdre le logo si l'utilisateur actualise sans cliquer sur Enregistrer). */
   const saveLogoAfterUpload = async (url: string) => {
@@ -72,6 +78,8 @@ export default function ParametresPage() {
       smsRappelEcheance: true,
       retentionKycAnnee: undefined as number | null | undefined,
       scoreSeuilCredit: undefined as number | null | undefined,
+      seuilMontantDoubleValidation: undefined as number | null | undefined,
+      seuilMontantCreditAssuranceObligatoire: undefined as number | null | undefined,
       devise: 'XAF',
       frequenceCollecte: FrequenceCollecte.QUOTIDIENNE,
       toleranceRetardJours: 0,
@@ -82,6 +90,16 @@ export default function ParametresPage() {
       tauxCommissionRetraitAnticipe: 5,
       dureeMinJoursAvantRetrait: 30,
       montantMinCotisationJournaliere: 1000,
+      tauxInteretEpargne: 0,
+      frequenceCalculInteret: null as FrequenceCalculInteret | null,
+      methodeCalculInteret: MethodeCalculInteret.SIMPLE,
+      precisionArrondiInteret: 1,
+      motDePasseLongueurMin: 8,
+      motDePasseExigerChiffre: true,
+      motDePasseExigerMajuscule: true,
+      motDePasseExigerSpecial: false,
+      motDePasseExpirationJours: undefined as number | null | undefined,
+      motDePasseHistoriqueCount: undefined as number | null | undefined,
     },
   });
 
@@ -131,11 +149,23 @@ export default function ParametresPage() {
           tauxCommissionRetraitAnticipe: Number(e.tauxCommissionRetraitAnticipe) ?? 5,
           dureeMinJoursAvantRetrait: Number(e.dureeMinJoursAvantRetrait) ?? 30,
           montantMinCotisationJournaliere: Number(e.montantMinCotisationJournaliere) ?? 1000,
+          tauxInteretEpargne: Number(e.tauxInteretEpargne) ?? 0,
+          frequenceCalculInteret: e.frequenceCalculInteret ?? null,
+          methodeCalculInteret: e.methodeCalculInteret ?? MethodeCalculInteret.SIMPLE,
+          precisionArrondiInteret: Number(e.precisionArrondiInteret) ?? 1,
           modulesActives: Array.isArray(e.modulesActives) ? e.modulesActives : ['COLLECTE', 'EPARGNE'],
           smsConfirmationCollecte: e.smsConfirmationCollecte ?? true,
           smsRappelEcheance: e.smsRappelEcheance ?? true,
           retentionKycAnnee: e.retentionKycAnnee ?? undefined,
           scoreSeuilCredit: e.scoreSeuilCredit ?? undefined,
+          seuilMontantDoubleValidation: e.seuilMontantDoubleValidation ?? undefined,
+          seuilMontantCreditAssuranceObligatoire: e.seuilMontantCreditAssuranceObligatoire ?? undefined,
+          motDePasseLongueurMin: Number(e.motDePasseLongueurMin) ?? 8,
+          motDePasseExigerChiffre: e.motDePasseExigerChiffre ?? true,
+          motDePasseExigerMajuscule: e.motDePasseExigerMajuscule ?? true,
+          motDePasseExigerSpecial: e.motDePasseExigerSpecial ?? false,
+          motDePasseExpirationJours: e.motDePasseExpirationJours ?? undefined,
+          motDePasseHistoriqueCount: e.motDePasseHistoriqueCount ?? undefined,
         });
       })
       .catch(() => toast.error('Erreur lors du chargement des paramètres'))
@@ -153,7 +183,9 @@ export default function ParametresPage() {
       if (payload.retentionKycAnnee === '' || payload.retentionKycAnnee === undefined) payload.retentionKycAnnee = null;
       if (typeof payload.retentionKycAnnee === 'number' && (payload.retentionKycAnnee < 1 || payload.retentionKycAnnee > 30)) payload.retentionKycAnnee = null;
       if (payload.scoreSeuilCredit === '' || payload.scoreSeuilCredit === undefined) payload.scoreSeuilCredit = null;
+      if (payload.frequenceCalculInteret === '') payload.frequenceCalculInteret = null;
       if (typeof payload.scoreSeuilCredit === 'number' && (payload.scoreSeuilCredit < 0 || payload.scoreSeuilCredit > 100)) payload.scoreSeuilCredit = null;
+      if (payload.seuilMontantCreditAssuranceObligatoire === '' || payload.seuilMontantCreditAssuranceObligatoire === undefined) payload.seuilMontantCreditAssuranceObligatoire = null;
       const updated = await entrepriseApi.update(id, payload as Partial<import('@/types').Entreprise>);
       setEntreprise(updated);
       toast.success('Paramètres enregistrés.');
@@ -180,7 +212,7 @@ export default function ParametresPage() {
       <Card>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Branding (Sprint 12)</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Branding</h2>
             <p className="text-sm text-gray-500 mb-4">
               Personnalisez l&apos;apparence de votre IMF sur le web et l&apos;application mobile (logo, couleurs).
             </p>
@@ -253,6 +285,51 @@ export default function ParametresPage() {
                 label="Slogan (optionnel)"
                 placeholder="Ex: Épargnez, investissez, grandissez"
                 {...register('slogan')}
+              />
+            </div>
+          </section>
+
+          <section className="border-t border-gray-100 pt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Politique mot de passe (sécurité)</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Règles appliquées à l&apos;inscription et à la création / modification des comptes utilisateurs (E8.2.2).
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                type="number"
+                min={6}
+                max={20}
+                label="Longueur minimale (caractères)"
+                {...register('motDePasseLongueurMin', { valueAsNumber: true, min: 6, max: 20 })}
+              />
+              <div className="flex flex-col gap-2">
+                <span className="block text-sm font-medium text-gray-700">Exigences de complexité</span>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" {...register('motDePasseExigerChiffre')} className="rounded border-gray-300 text-primary-600" />
+                  <span className="text-sm">Au moins un chiffre</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" {...register('motDePasseExigerMajuscule')} className="rounded border-gray-300 text-primary-600" />
+                  <span className="text-sm">Au moins une majuscule</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" {...register('motDePasseExigerSpecial')} className="rounded border-gray-300 text-primary-600" />
+                  <span className="text-sm">Au moins un caractère spécial</span>
+                </label>
+              </div>
+              <Input
+                type="number"
+                min={0}
+                max={730}
+                label="Expiration mot de passe (jours) — 0 ou vide = pas d'expiration"
+                {...register('motDePasseExpirationJours', { valueAsNumber: true, setValueAs: (v) => (v === '' || Number.isNaN(v) ? undefined : v) })}
+              />
+              <Input
+                type="number"
+                min={0}
+                max={24}
+                label="Historique : ne pas réutiliser les N derniers MDP — 0 ou vide = désactivé"
+                {...register('motDePasseHistoriqueCount', { valueAsNumber: true, setValueAs: (v) => (v === '' || Number.isNaN(v) ? undefined : v) })}
               />
             </div>
           </section>
@@ -459,6 +536,51 @@ export default function ParametresPage() {
           </section>
 
           <section className="border-t border-gray-100 pt-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Épargne (paramètres globaux)</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Ces paramètres s&apos;appliquent à tous les plans d&apos;épargne. Les plans (1000, 2000 XAF/jour…) ne définissent que le montant, la durée et le type.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Taux d'intérêt annuel épargne (%)"
+                type="number"
+                step={0.1}
+                placeholder="0"
+                {...register('tauxInteretEpargne', {
+                  valueAsNumber: true,
+                  min: { value: 0, message: 'Minimum 0%' },
+                  max: { value: 100, message: 'Maximum 100%' },
+                })}
+              />
+              <Select
+                label="Fréquence calcul des intérêts"
+                {...register('frequenceCalculInteret')}
+              >
+                <option value="">Désactivé</option>
+                <option value={FrequenceCalculInteret.MENSUEL}>Mensuel</option>
+                <option value={FrequenceCalculInteret.TRIMESTRIEL}>Trimestriel</option>
+              </Select>
+              <Select
+                label="Méthode de calcul des intérêts"
+                {...register('methodeCalculInteret')}
+              >
+                <option value={MethodeCalculInteret.SIMPLE}>Simple</option>
+                <option value={MethodeCalculInteret.CAPITALISE}>Capitalisé</option>
+              </Select>
+              <Input
+                label="Précision arrondi (1 = XAF, 5 = 5 XAF)"
+                type="number"
+                min={1}
+                placeholder="1"
+                {...register('precisionArrondiInteret', {
+                  valueAsNumber: true,
+                  min: { value: 1, message: 'Minimum 1' },
+                })}
+              />
+            </div>
+          </section>
+
+          <section className="border-t border-gray-100 pt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Modules activés</h2>
             <p className="text-sm text-gray-500 mb-4">
               Sélectionnez les modules proposés par votre IMF aux clients (application mobile). Les modules désactivés ne seront pas accessibles.
@@ -547,7 +669,7 @@ export default function ParametresPage() {
           </section>
 
           <section className="border-t border-gray-100 pt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Archivage KYC (Sprint 13)</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Archivage KYC </h2>
             <p className="text-sm text-gray-500 mb-4">
               Durée de rétention des pièces d&apos;identité (années). Vide = pas de purge automatique. Utilisé pour la politique d&apos;archivage (voir docs/ARCHIVAGE_KYC.md).
             </p>
@@ -565,8 +687,8 @@ export default function ParametresPage() {
                 })}
               />
             </div>
-            <p className="text-sm text-gray-500 mt-4 mb-2">Score minimum client pour octroi crédit (Sprint 11)</p>
-            <div className="max-w-xs">
+            <p className="text-sm text-gray-500 mt-4 mb-2">Score minimum client pour octroi crédit </p>
+            <div className="max-w-xs space-y-4">
               <Input
                 type="number"
                 min={0}
@@ -579,6 +701,22 @@ export default function ParametresPage() {
                   max: { value: 100, message: 'Entre 0 et 100' },
                 })}
               />
+              <Input
+                type="number"
+                min={0}
+                placeholder="Ex. 5 000 000 ou vide"
+                label="Seuil double validation crédit (montant) — E8"
+                {...register('seuilMontantDoubleValidation', { setValueAs: (v) => (v === '' || v === undefined ? undefined : Number(v)) })}
+              />
+              <p className="text-xs text-gray-500">Au-dessus de ce montant : validation Chef agence puis Direction obligatoire. Vide = validation simple.</p>
+              <Input
+                type="number"
+                min={0}
+                placeholder="Ex. 1 000 000 ou vide"
+                label="Seuil assurance obligatoire (montant) — Module 10"
+                {...register('seuilMontantCreditAssuranceObligatoire', { setValueAs: (v) => (v === '' || v === undefined ? undefined : Number(v)) })}
+              />
+              <p className="text-xs text-gray-500">Au-dessus de ce montant accordé, une assurance active est obligatoire pour le dossier avant octroi du crédit. Vide = pas d&apos;exigence.</p>
             </div>
           </section>
 
@@ -617,6 +755,99 @@ export default function ParametresPage() {
           </div>
         </form>
       </Card>
+
+      {isAdminOrSuperAdmin && (
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Sessions (toutes les connexions)</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Liste des connexions récentes des utilisateurs de l&apos;entreprise. Vous pouvez révoquer toutes les sessions d&apos;un utilisateur (il devra se reconnecter).
+          </p>
+          <div className="flex gap-2 mb-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                setAdminSessionsLoading(true);
+                try {
+                  const params =
+                    user?.role === RoleUtilisateur.SuperAdmin && storeEntreprise?.id
+                      ? { idEntreprise: storeEntreprise.id }
+                      : {};
+                  const list = await authApi.sessionsAdmin(params);
+                  setAdminSessions(list);
+                } catch (e: any) {
+                  toast.error(e?.response?.data?.message || 'Erreur chargement sessions');
+                } finally {
+                  setAdminSessionsLoading(false);
+                }
+              }}
+              disabled={adminSessionsLoading}
+            >
+              {adminSessionsLoading ? 'Chargement…' : 'Actualiser la liste'}
+            </Button>
+          </div>
+          {adminSessions.length > 0 && (
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">Utilisateur</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">Rôle</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">Date connexion</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">IP / Appareil</th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-700">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {adminSessions.map((s) => (
+                    <tr key={s.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">
+                        {s.utilisateur
+                          ? [s.utilisateur.prenom, s.utilisateur.nom].filter(Boolean).join(' ') || s.utilisateur.email
+                          : s.idUtilisateur}
+                      </td>
+                      <td className="px-3 py-2">{s.utilisateur?.role ?? '—'}</td>
+                      <td className="px-3 py-2">
+                        {s.dateConnexion
+                          ? new Date(s.dateConnexion).toLocaleString('fr-FR')
+                          : '—'}
+                      </td>
+                      <td className="px-3 py-2 max-w-[200px] truncate" title={s.userAgent ?? undefined}>
+                        {s.ip ?? '—'} {s.userAgent ? ` · ${String(s.userAgent).slice(0, 40)}…` : ''}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          className="text-primary-600 hover:underline disabled:opacity-50"
+                          disabled={revokingUserId === s.idUtilisateur}
+                          onClick={async () => {
+                            if (!confirm('Révoquer toutes les sessions de cet utilisateur ?')) return;
+                            setRevokingUserId(s.idUtilisateur);
+                            try {
+                              await authApi.revokeAllSessions(s.idUtilisateur);
+                              toast.success('Sessions révoquées.');
+                              setAdminSessions((prev) => prev.filter((x) => x.idUtilisateur !== s.idUtilisateur));
+                            } catch (e: any) {
+                              toast.error(e?.response?.data?.message || 'Erreur révocation');
+                            } finally {
+                              setRevokingUserId(null);
+                            }
+                          }}
+                        >
+                          {revokingUserId === s.idUtilisateur ? '…' : 'Déconnecter cet utilisateur'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {adminSessions.length === 0 && !adminSessionsLoading && (
+            <p className="text-sm text-gray-500">Cliquez sur &quot;Actualiser la liste&quot; pour charger les sessions.</p>
+          )}
+        </Card>
+      )}
     </div>
   );
 }
