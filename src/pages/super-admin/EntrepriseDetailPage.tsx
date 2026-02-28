@@ -51,8 +51,13 @@ const statutLabels: Record<StatutEntreprise, string> = {
 const roleLabels: Record<RoleUtilisateur, string> = {
   [RoleUtilisateur.SuperAdmin]: 'Super Admin',
   [RoleUtilisateur.AdminEntreprise]: 'Admin Entreprise',
+  [RoleUtilisateur.Directeur]: 'Directeur',
+  [RoleUtilisateur.ChefAgence]: 'Chef d\'agence',
   [RoleUtilisateur.Gestionnaire]: 'Gestionnaire',
+  [RoleUtilisateur.GestionnaireCredit]: 'Gestionnaire crédit',
+  [RoleUtilisateur.Caissier]: 'Caissier',
   [RoleUtilisateur.Collecteur]: 'Collecteur',
+  [RoleUtilisateur.Auditeur]: 'Auditeur',
   [RoleUtilisateur.Client]: 'Client',
 };
 
