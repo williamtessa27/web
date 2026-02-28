@@ -521,7 +521,12 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold mb-4 text-gray-300 uppercase tracking-wider">Légal</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><a href="#" className="hover:text-white transition-colors">Mentions légales</a></li>
+              <li>
+                <Link to={AppRoutes.POLITIQUE_CONFIDENTIALITE} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Politique de confidentialité</Link>
+              </li>
+              <li>
+                <Link to={AppRoutes.CONDITIONS_UTILISATION} target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Conditions d'utilisation</Link>
+              </li>
               <li><Link to={AppRoutes.CONTACT} className="hover:text-white transition-colors">Contact</Link></li>
             </ul>
           </div>

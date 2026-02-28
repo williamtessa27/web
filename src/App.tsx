@@ -17,6 +17,8 @@ import AppLayout from '@/components/layout/AppLayout';
 // Pages
 import LandingPage from '@/pages/LandingPage';
 import ContactPage from '@/pages/contact/ContactPage';
+import PolitiqueConfidentialitePage from '@/pages/legal/PolitiqueConfidentialitePage';
+import ConditionsUtilisationPage from '@/pages/legal/ConditionsUtilisationPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
 import OnboardingPage from '@/pages/onboarding/OnboardingPage';
@@ -102,6 +104,8 @@ export default function App() {
         {/* ─── Landing & Contact (public) ─────────── */}
         <Route path={AppRoutes.HOME} element={<LandingPage />} />
         <Route path={AppRoutes.CONTACT} element={<ContactPage />} />
+        <Route path={AppRoutes.POLITIQUE_CONFIDENTIALITE} element={<PolitiqueConfidentialitePage />} />
+        <Route path={AppRoutes.CONDITIONS_UTILISATION} element={<ConditionsUtilisationPage />} />
 
         {/* ─── Routes publiques (Guest) ──────────── */}
         <Route element={<GuestGuard />}>

@@ -1,6 +1,8 @@
 export const AppRoutes = {
   HOME: '/',
   CONTACT: '/contact',
+  POLITIQUE_CONFIDENTIALITE: '/politique-confidentialite',
+  CONDITIONS_UTILISATION: '/conditions-utilisation',
   LOGIN: '/login',
   REGISTER: '/register',
   ONBOARDING: '/onboarding',
