@@ -1,7 +1,7 @@
 /**
  * Configuration PM2 — Web (React / Vite)
  * Lancer après : npm run build
- * Port par défaut : 3000
+ * Port par défaut : 3008
  */
 module.exports = {
   apps: [
@@ -12,8 +12,8 @@ module.exports = {
       cwd: __dirname,
       instances: 1,
       exec_mode: 'fork',
-      env: { NODE_ENV: 'production', PORT: 3000 },
-      env_production: { NODE_ENV: 'production', PORT: 3000 },
+      env: { NODE_ENV: 'production', PORT: 3008 },
+      env_production: { NODE_ENV: 'production', PORT: 3008 },
       autorestart: true,
       watch: false,
       max_memory_restart: '512M',
