@@ -22,5 +22,6 @@ export default defineConfig({
     },
     preview: {
         port: 3008,
+        allowedHosts: ['kimifinance.com', 'www.kimifinance.com']
     },
 });
