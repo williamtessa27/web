@@ -11,6 +11,7 @@ export default defineConfig({
         },
     },
     server: {
+        host: true,   // écoute 0.0.0.0 et ::1
         port: 3008,
         proxy: {
             '/api': {
