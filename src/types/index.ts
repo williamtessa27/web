@@ -155,6 +155,10 @@ export interface Collecteur {
   tauxCommission: number;
   actif: boolean;
   createdAt: string;
+  /** Dernière position (temps réel, pour la carte des collecteurs) */
+  lastLatitude?: number | null;
+  lastLongitude?: number | null;
+  lastPositionAt?: string | null;
 }
 
 // ─── Client (niveau bancaire) ────────────────────

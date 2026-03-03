@@ -26,6 +26,7 @@ import DashboardPage from '@/pages/dashboard/DashboardPage';
 import DashboardAgencePage from '@/pages/dashboard/DashboardAgencePage';
 import UtilisateursPage from '@/pages/utilisateurs/UtilisateursPage';
 import CollecteursPage from '@/pages/collecteurs/CollecteursPage';
+import CarteCollecteursPage from '@/pages/collecteurs/CarteCollecteursPage';
 import CreateCollecteurPage from '@/pages/collecteurs/CreateCollecteurPage';
 import CollecteurDetailPage from '@/pages/collecteurs/CollecteurDetailPage';
 import ClientsPage from '@/pages/clients/ClientsPage';
@@ -155,8 +156,9 @@ export default function App() {
                 <Route path={AppRoutes.UTILISATEUR_DETAIL} element={<UtilisateurDetailPage />} />
               </Route>
 
-              {/* Collecteurs (Admin / Gestionnaire) */}
-              <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire]} />}>
+              {/* Collecteurs (Admin / Gestionnaire / Directeur / ChefAgence) */}
+              <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Directeur, RoleUtilisateur.ChefAgence, RoleUtilisateur.Gestionnaire]} />}>
+                <Route path={AppRoutes.COLLECTEURS_MAP} element={<CarteCollecteursPage />} />
                 <Route path={AppRoutes.COLLECTEURS} element={<CollecteursPage />} />
                 <Route path={AppRoutes.COLLECTEUR_CREATE} element={<CreateCollecteurPage />} />
                 <Route path={AppRoutes.COLLECTEUR_DETAIL} element={<CollecteurDetailPage />} />

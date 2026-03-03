@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { HiOutlineArrowLeft, HiOutlinePencil, HiOutlineUser } from 'react-icons/hi2';
-import { collecteurApi, utilisateurApi, zoneApi, agenceApi } from '@/core/api';
+import { HiOutlineArrowLeft, HiOutlinePencil, HiOutlineUser, HiOutlineMapPin } from 'react-icons/hi2';
+import { collecteurApi, utilisateurApi, zoneApi, agenceApi, collecteApi } from '@/core/api';
 import { AppRoutes } from '@/config/routes.config';
-import type { Collecteur, Zone, Agence } from '@/types';
+import type { Collecteur, Zone, Agence, Collecte } from '@/types';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -29,6 +29,8 @@ export default function CollecteurDetailPage() {
   const [formAgenceId, setFormAgenceId] = useState<string>('');
   const [formActif, setFormActif] = useState(true);
   const [agences, setAgences] = useState<Agence[]>([]);
+  /** Dernière collecte avec coordonnées GPS (pour afficher la position du collecteur) */
+  const [lastCollecteWithPosition, setLastCollecteWithPosition] = useState<Collecte | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -54,6 +56,19 @@ export default function CollecteurDetailPage() {
   useEffect(() => {
     agenceApi.list(true).then((list) => setAgences(list ?? [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    collecteApi
+      .list({ collecteurId: id, limit: 100, sortBy: 'dateCollecte', sortOrder: 'DESC' })
+      .then((res) => {
+        const firstWithPosition = res.data?.find(
+          (c) => c.latitude != null && c.longitude != null
+        ) ?? null;
+        setLastCollecteWithPosition(firstWithPosition ?? null);
+      })
+      .catch(() => {});
+  }, [id]);
 
   const onPhotoChange = async (url: string) => {
     if (!collecteur?.utilisateur?.id) return;
@@ -171,6 +186,32 @@ export default function CollecteurDetailPage() {
           )}
         </div>
       </div>
+
+      {lastCollecteWithPosition && (
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+            <HiOutlineMapPin className="h-5 w-5 text-primary-600" />
+            Dernière position connue
+          </h2>
+          <p className="text-sm text-gray-500 mb-3">
+            Position enregistrée lors d&apos;une collecte le{' '}
+            {lastCollecteWithPosition.dateCollecte}
+            {lastCollecteWithPosition.heureCollecte
+              ? ` à ${lastCollecteWithPosition.heureCollecte}`
+              : ''}
+            .
+          </p>
+          <a
+            href={`https://www.google.com/maps?q=${lastCollecteWithPosition.latitude},${lastCollecteWithPosition.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700"
+          >
+            <HiOutlineMapPin className="h-4 w-4" />
+            Voir sur la carte (Google Maps)
+          </a>
+        </Card>
+      )}
 
       <Card>
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Informations</h2>

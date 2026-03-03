@@ -195,6 +195,8 @@ export const collecteurApi = {
   create: (data: Record<string, unknown>) => apiClient.post<Collecteur>('/collecteurs', data).then((r) => r.data),
   update: (id: string, data: Record<string, unknown>) =>
     apiClient.patch<Collecteur>(`/collecteurs/${id}`, data).then((r) => r.data),
+  /** Positions temps réel pour la carte des collecteurs */
+  positions: () => apiClient.get<Collecteur[]>('/collecteurs/positions').then((r) => r.data),
 };
 
 // ─── Clients ──────────────────────────────────────

@@ -12,6 +12,7 @@ export const AppRoutes = {
   UTILISATEURS: '/utilisateurs',
   // ─── Collecteurs ────────────────────────────────
   COLLECTEURS: '/collecteurs',
+  COLLECTEURS_MAP: '/collecteurs/carte',
   COLLECTEUR_CREATE: '/collecteurs/create',
   COLLECTEUR_DETAIL: '/collecteurs/:id',
   // ─── Clients ────────────────────────────────────

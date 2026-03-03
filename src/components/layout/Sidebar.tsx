@@ -141,8 +141,13 @@ export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCo
   if (isAdmin(role) || isGestionnaire(role)) {
     orgItems.push(
       { label: t('sidebar.collecteurs'), to: AppRoutes.COLLECTEURS, icon: <HiOutlineUserGroup className="h-5 w-5" /> },
+      { label: t('sidebar.carteCollecteurs', 'Carte des collecteurs'), to: AppRoutes.COLLECTEURS_MAP, icon: <HiOutlineMapPin className="h-5 w-5" /> },
       { label: t('sidebar.zones'), to: AppRoutes.ZONES, icon: <HiOutlineMapPin className="h-5 w-5" /> },
       { label: t('sidebar.agences'), to: AppRoutes.AGENCES, icon: <HiOutlineBuildingOffice2 className="h-5 w-5" /> },
+    );
+  } else if (isDirecteur(role) || role === RoleUtilisateur.ChefAgence) {
+    orgItems.push(
+      { label: t('sidebar.carteCollecteurs', 'Carte des collecteurs'), to: AppRoutes.COLLECTEURS_MAP, icon: <HiOutlineMapPin className="h-5 w-5" /> },
     );
   }
   if (orgItems.length > 0) {
