@@ -32,7 +32,7 @@ function MapCenterController({ collecteurs }: { collecteurs: Collecteur[] }) {
       map.setView([valid[0].lastLatitude!, valid[0].lastLongitude!], 14);
     } else {
       const bounds = L.latLngBounds(
-        valid.map((c) => [c.lastLatitude!, c.lastLongitude!] as L.LatLngTuple)
+        valid.map((c) => [c.lastLatitude!, c.lastLongitude!] as [number, number])
       );
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
     }

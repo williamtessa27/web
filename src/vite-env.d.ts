@@ -1,5 +1,9 @@
 /// <reference types="vite/client" />
 
+// Permet au build de résoudre ces modules si node_modules n'est pas encore installé (ex: après git pull, avant npm install)
+declare module 'leaflet';
+declare module 'react-leaflet';
+
 declare module 'react-google-recaptcha' {
   import type { ComponentType, RefObject } from 'react';
   export interface ReCAPTCHAProps {
