@@ -90,22 +90,76 @@ const faqs = [
 
 // ─── COMPONENTS ──────────────────────────────────────
 function Navbar() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  const navLinks = (
+    <>
+      <a href="#features" onClick={closeMobileMenu} className="hover:text-primary-600 transition-colors">Fonctionnalités</a>
+      <a href="#how-it-works" onClick={closeMobileMenu} className="hover:text-primary-600 transition-colors">Comment ça marche</a>
+      <a href="#faq" onClick={closeMobileMenu} className="hover:text-primary-600 transition-colors">FAQ</a>
+      <Link to={AppRoutes.CONTACT} onClick={closeMobileMenu} className="hover:text-primary-600 transition-colors">Contact</Link>
+    </>
+  );
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <img src="/logo_collect.png" alt="Kimifinance" className="h-[60px] w-[60px] object-contain shrink-0" />
-          <span className="text-lg font-bold text-gray-900">Kimifinance</span>
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 min-w-0">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0 shrink" onClick={closeMobileMenu}>
+          <img src="/logo_collect.png" alt="Kimifinance" className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 object-contain shrink-0" />
+          <span className="text-base sm:text-lg font-bold text-gray-900 truncate">Kimifinance</span>
         </Link>
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-          <a href="#features" className="hover:text-primary-600 transition-colors">Fonctionnalités</a>
-          <a href="#how-it-works" className="hover:text-primary-600 transition-colors">Comment ça marche</a>
-          <a href="#faq" className="hover:text-primary-600 transition-colors">FAQ</a>
-          <Link to={AppRoutes.CONTACT} className="hover:text-primary-600 transition-colors">Contact</Link>
+
+        {/* Desktop: liens au centre */}
+        <div className="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-medium text-gray-600 shrink-0">
+          {navLinks}
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+
+        {/* Desktop: Connexion + Commencer */}
+        <div className="hidden md:flex items-center gap-2 lg:gap-3 shrink-0">
           <Link to={AppRoutes.LOGIN} className="text-sm font-medium text-gray-600 hover:text-primary-600 px-3 py-2 transition-colors">Connexion</Link>
-          <Link to={AppRoutes.REGISTER} className="text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 px-4 py-2.5 rounded-xl transition-colors shadow-sm">Commencer</Link>
+          <Link to={AppRoutes.REGISTER} className="text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 px-4 py-2.5 rounded-xl transition-colors shadow-sm whitespace-nowrap">Commencer</Link>
+        </div>
+
+        {/* Mobile: uniquement le bouton menu (toujours visible, pas de scroll horizontal) */}
+        <div className="flex md:hidden items-center shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((o) => !o)}
+            className="p-2.5 -mr-1 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors touch-manipulation"
+            aria-expanded={mobileMenuOpen}
+            aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          >
+            {mobileMenuOpen ? (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile menu (panneau déroulant) — Connexion et Commencer inclus pour éviter overflow header */}
+      <div
+        className={clsx(
+          'md:hidden overflow-hidden transition-all duration-200 ease-out',
+          mobileMenuOpen ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        <div className="border-t border-gray-100 bg-white/98 backdrop-blur-sm px-4 py-4 flex flex-col gap-1">
+          <a href="#features" onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors">Fonctionnalités</a>
+          <a href="#how-it-works" onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors">Comment ça marche</a>
+          <a href="#faq" onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors">FAQ</a>
+          <Link to={AppRoutes.CONTACT} onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors">Contact</Link>
+          <div className="border-t border-gray-100 mt-2 pt-3 flex flex-col gap-2">
+            <Link to={AppRoutes.LOGIN} onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors text-center">Connexion</Link>
+            <Link to={AppRoutes.REGISTER} onClick={closeMobileMenu} className="py-3 px-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 text-center transition-colors">Commencer</Link>
+          </div>
         </div>
       </div>
     </nav>
