@@ -38,18 +38,14 @@ export default function ConnectionStatusBar() {
   return (
     <>
       {showBar && (
-        <>
-          {/* Espaceur pour ne pas masquer le contenu sous la barre fixe */}
-          <div className="h-[42px] flex-shrink-0" aria-hidden />
-          <div
-            role="status"
-            aria-live="polite"
-            className={`fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium shadow-md ${className}`}
-          >
-            {icon}
-            <span>{message}</span>
-          </div>
-        </>
+        <div
+          role="status"
+          aria-live="polite"
+          className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium shadow-md ${className}`}
+        >
+          {icon}
+          <span>{message}</span>
+        </div>
       )}
     </>
   );
