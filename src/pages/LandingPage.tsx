@@ -148,10 +148,10 @@ function Navbar() {
       <div
         className={clsx(
           'md:hidden overflow-hidden transition-all duration-200 ease-out',
-          mobileMenuOpen ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
+          mobileMenuOpen ? 'max-h-[28rem] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
-        <div className="border-t border-gray-100 bg-white/98 backdrop-blur-sm px-4 py-4 flex flex-col gap-1">
+        <div className="border-t border-gray-100 bg-white/98 backdrop-blur-sm px-4 py-4 pb-5 flex flex-col gap-1">
           <a href="#features" onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors">Fonctionnalités</a>
           <a href="#how-it-works" onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors">Comment ça marche</a>
           <a href="#faq" onClick={closeMobileMenu} className="py-3 px-3 rounded-lg text-gray-700 hover:bg-gray-50 hover:text-primary-600 font-medium transition-colors">FAQ</a>
