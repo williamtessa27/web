@@ -9,9 +9,9 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, './src'),
         },
+        dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
     },
     server: {
-        host: true,   // écoute 0.0.0.0 et ::1
         port: 3008,
         proxy: {
             '/api': {
@@ -22,6 +22,5 @@ export default defineConfig({
     },
     preview: {
         port: 3008,
-        allowedHosts: ['kimifinance.com', 'www.kimifinance.com']
     },
 });

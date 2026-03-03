@@ -43,6 +43,9 @@ export default function SouscriptionsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [produits, setProduits] = useState<Produit[]>([]);
 
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [subscriptionToCancel, setSubscriptionToCancel] = useState<Souscription | null>(null);
+
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportForm, setExportForm] = useState<ExportSouscriptionsParams>({
@@ -122,17 +125,35 @@ export default function SouscriptionsPage() {
     }
   }, [exportForm]);
 
+  const openCancelConfirm = (s: Souscription) => {
+    setSubscriptionToCancel(s);
+    setCancelConfirmOpen(true);
+  };
+
+  const closeCancelConfirm = () => {
+    if (!cancellingId) {
+      setCancelConfirmOpen(false);
+      setSubscriptionToCancel(null);
+    }
+  };
+
   const handleCancel = async (id: string) => {
     setCancellingId(id);
     try {
       await souscriptionApi.cancel(id);
       toast.success('Souscription annulée.');
+      setCancelConfirmOpen(false);
+      setSubscriptionToCancel(null);
       loadData();
     } catch {
       toast.error('Impossible d\'annuler la souscription.');
     } finally {
       setCancellingId(null);
     }
+  };
+
+  const handleConfirmCancel = () => {
+    if (subscriptionToCancel) handleCancel(subscriptionToCancel.id);
   };
 
   if (loading) return <PageLoader />;
@@ -300,12 +321,21 @@ export default function SouscriptionsPage() {
                     canCancelSouscription(user?.role) &&
                     (s.statut === StatutSouscription.EN_COURS || s.statut === StatutSouscription.EN_ATTENTE);
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 text-sm font-mono text-gray-600">{s.codeSouscription}</td>
+                    <tr
+                    key={s.id}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(AppRoutes.SOUSCRIPTION_DETAIL.replace(':id', s.id))}
+                  >
+                      <td className="px-6 py-4 text-sm font-mono text-gray-600">
+                        <span className="text-primary-600 hover:underline font-medium">{s.codeSouscription}</span>
+                      </td>
                       <td className="px-6 py-4">
                         <button
                           type="button"
-                          onClick={() => s.idClient && navigate(AppRoutes.CLIENT_DETAIL.replace(':id', s.idClient))}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            s.idClient && navigate(AppRoutes.CLIENT_DETAIL.replace(':id', s.idClient));
+                          }}
                           className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline text-left"
                         >
                           {s.client?.nom || '—'}
@@ -334,7 +364,7 @@ export default function SouscriptionsPage() {
                               variant="ghost"
                               size="sm"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleCancel(s.id)}
+                              onClick={(e) => { e.stopPropagation(); openCancelConfirm(s); }}
                               disabled={cancellingId === s.id}
                               isLoading={cancellingId === s.id}
                             >
@@ -353,6 +383,41 @@ export default function SouscriptionsPage() {
           </div>
         </Card>
       )}
+
+      <Modal
+        open={cancelConfirmOpen}
+        onClose={closeCancelConfirm}
+        title="Confirmer l'annulation"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            {subscriptionToCancel ? (
+              <>
+                Êtes-vous sûr de vouloir annuler la souscription{' '}
+                <strong>{subscriptionToCancel.codeSouscription}</strong>
+                {subscriptionToCancel.client?.nom || subscriptionToCancel.client?.prenom ? (
+                  <> (client : {[subscriptionToCancel.client.nom, subscriptionToCancel.client.prenom].filter(Boolean).join(' ')})</>
+                ) : null}
+                ?
+              </>
+            ) : null}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={closeCancelConfirm} disabled={!!cancellingId}>
+              Garder la souscription
+            </Button>
+            <Button
+              variant="primary"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleConfirmCancel}
+              disabled={!subscriptionToCancel || !!cancellingId}
+              isLoading={!!cancellingId && subscriptionToCancel?.id === cancellingId}
+            >
+              Oui, annuler la souscription
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={exportModalOpen}

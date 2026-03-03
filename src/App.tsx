@@ -39,6 +39,7 @@ import ProduitsMicrofinancePage from '@/pages/produits/ProduitsMicrofinancePage'
 import CreateProduitPage from '@/pages/produits/CreateProduitPage';
 import EditProduitPage from '@/pages/produits/EditProduitPage';
 import SouscriptionsPage from '@/pages/souscriptions/SouscriptionsPage';
+import SouscriptionDetailPage from '@/pages/souscriptions/SouscriptionDetailPage';
 import CreateSouscriptionPage from '@/pages/souscriptions/CreateSouscriptionPage';
 import ZonesPage from '@/pages/zones/ZonesPage';
 import AgencesPage from '@/pages/agences/AgencesPage';
@@ -181,6 +182,7 @@ export default function App() {
               {/* Zones, Souscriptions, Tournées, Commissions (Admin + Gestionnaire) */}
               <Route element={<RoleGuard allowedRoles={[RoleUtilisateur.SuperAdmin, RoleUtilisateur.AdminEntreprise, RoleUtilisateur.Gestionnaire]} />}>
                 <Route path={AppRoutes.SOUSCRIPTIONS} element={<SouscriptionsPage />} />
+                <Route path={AppRoutes.SOUSCRIPTION_DETAIL} element={<SouscriptionDetailPage />} />
                 <Route path={AppRoutes.SOUSCRIPTION_CREATE} element={<CreateSouscriptionPage />} />
                 <Route path={AppRoutes.ZONES} element={<ZonesPage />} />
                 <Route path={AppRoutes.AGENCES} element={<AgencesPage />} />

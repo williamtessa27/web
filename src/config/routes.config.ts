@@ -31,6 +31,7 @@ export const AppRoutes = {
   // ─── Souscriptions ──────────────────────────────
   SOUSCRIPTIONS: '/souscriptions',
   SOUSCRIPTION_CREATE: '/souscriptions/create',
+  SOUSCRIPTION_DETAIL: '/souscriptions/:id',
   // ─── Tournées ───────────────────────────────────
   TOURNEES: '/tournees',
   TOURNEE_DETAIL: '/tournees/:id',

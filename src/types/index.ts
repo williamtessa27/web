@@ -335,6 +335,8 @@ export interface Souscription {
   statut: import('./enums').StatutSouscription;
   idEntreprise: string;
   createdAt: string;
+  /** Liste des collectes (rempli par GET /souscriptions/:id) */
+  collectes?: Collecte[];
 }
 
 // ─── Mouvement compte (épargne : dépôt, retrait, commission, intérêt) ─
