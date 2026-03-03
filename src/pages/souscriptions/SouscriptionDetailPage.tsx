@@ -213,7 +213,7 @@ export default function SouscriptionDetailPage() {
                       : isPast
                         ? `Non collecté (${format(day, 'd MMM yyyy', { locale: fr })})`
                         : isFinished
-                          ? null
+                          ? undefined
                           : `À collecter (${format(day, 'd MMM yyyy', { locale: fr })})`
                   }
                 >
