@@ -27,8 +27,10 @@ export default function AbonnementsPage() {
   const [entreprises, setEntreprises] = useState<Entreprise[]>([]);
   const [selectedEntrepriseId, setSelectedEntrepriseId] = useState<string>('');
   const [abonnements, setAbonnements] = useState<Abonnement[]>([]);
+  const [tousAbonnements, setTousAbonnements] = useState<Abonnement[]>([]);
   const [loadingEnt, setLoadingEnt] = useState(true);
   const [loadingAb, setLoadingAb] = useState(false);
+  const [loadingTous, setLoadingTous] = useState(true);
   const [form, setForm] = useState({
     montant: '',
     dateDebut: '',
@@ -49,6 +51,19 @@ export default function AbonnementsPage() {
     loadEntreprises();
   }, [loadEntreprises]);
 
+  const loadTousAbonnements = useCallback(() => {
+    setLoadingTous(true);
+    abonnementApi
+      .listAll()
+      .then(setTousAbonnements)
+      .catch(() => toast.error('Erreur chargement de la liste globale des abonnements'))
+      .finally(() => setLoadingTous(false));
+  }, []);
+
+  useEffect(() => {
+    loadTousAbonnements();
+  }, [loadTousAbonnements]);
+
   useEffect(() => {
     if (!selectedEntrepriseId) {
       setAbonnements([]);
@@ -62,8 +77,20 @@ export default function AbonnementsPage() {
       .finally(() => setLoadingAb(false));
   }, [selectedEntrepriseId]);
 
+  useEffect(() => {
+    if (selectedEntrepriseId) {
+      const today = new Date().toISOString().slice(0, 10);
+      setForm((f) => ({ ...f, dateDebut: f.dateDebut || today }));
+    }
+  }, [selectedEntrepriseId]);
+
   const selectedEntreprise = entreprises.find((e) => e.id === selectedEntrepriseId);
-  const today = new Date().toISOString().slice(0, 10);
+  /** Limite basse du champ date : rétroactivité raisonnable pour continuité après essai */
+  const dateMinRetro = (() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 12);
+    return d.toISOString().slice(0, 10);
+  })();
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,8 +108,8 @@ export default function AbonnementsPage() {
       toast.error('Durée minimale : 1 mois');
       return;
     }
-    if (!form.dateDebut || form.dateDebut < today) {
-      toast.error('La date de début doit être aujourd\'hui ou une date future');
+    if (!form.dateDebut) {
+      toast.error('Indiquez une date de début');
       return;
     }
     setSubmitting(true);
@@ -96,6 +123,7 @@ export default function AbonnementsPage() {
       toast.success('Abonnement créé');
       setForm({ montant: '', dateDebut: '', dureeMois: '1' });
       abonnementApi.listByEntreprise(selectedEntrepriseId).then(setAbonnements);
+      loadTousAbonnements();
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? 'Erreur lors de la création';
       toast.error(Array.isArray(msg) ? msg[0] : msg);
@@ -118,9 +146,62 @@ export default function AbonnementsPage() {
         </Link>
         <h1 className="mt-2 text-2xl font-bold text-gray-900">Abonnements</h1>
         <p className="text-gray-500 mt-1">
-          Créer et consulter les abonnements par entreprise. La date de début doit être aujourd'hui ou une date future (pas en arrière).
+          Créer des abonnements qui prolongent l’accès à la plateforme après la période d’essai : même rôle que l’essai, sur la période définie (dates en jours calendaires, alignées sur le serveur). La date de début peut être dans le passé si la période couvre encore aujourd’hui (continuité).
         </p>
       </div>
+
+      <Card className="rounded-2xl">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Tous les abonnements (par entreprise)</h2>
+        {loadingTous ? (
+          <div className="animate-pulse h-32 rounded-lg bg-gray-100" />
+        ) : !tousAbonnements.length ? (
+          <EmptyState title="Aucun abonnement" description="Les abonnements créés apparaîtront ici." />
+        ) : (
+          <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-500 uppercase text-xs">Entreprise</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-500 uppercase text-xs">Montant</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-500 uppercase text-xs">Début</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-500 uppercase text-xs">Fin</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-500 uppercase text-xs">Durée</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-500 uppercase text-xs">Statut</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {tousAbonnements.map((a) => {
+                  const dateDebut = new Date(a.dateDebut);
+                  const dateFin = new Date(a.dateFin);
+                  const now = new Date();
+                  now.setHours(0, 0, 0, 0);
+                  dateDebut.setHours(0, 0, 0, 0);
+                  dateFin.setHours(0, 0, 0, 0);
+                  const isEnCours = now >= dateDebut && now <= dateFin;
+                  const isFutur = now < dateDebut;
+                  const nomEnt = a.entreprise?.nom ?? entreprises.find((e) => e.id === a.entrepriseId)?.nom ?? a.entrepriseId.slice(0, 8);
+                  return (
+                    <tr key={a.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium text-gray-900">{nomEnt}</td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {formatMontant(Number(a.montant), a.entreprise?.devise ?? 'XAF')}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600">{format(dateDebut, 'dd MMM yyyy', { locale: fr })}</td>
+                      <td className="px-3 py-2 text-gray-600">{format(dateFin, 'dd MMM yyyy', { locale: fr })}</td>
+                      <td className="px-3 py-2 text-gray-600">{a.dureeMois} mois</td>
+                      <td className="px-3 py-2">
+                        <Badge variant={isEnCours ? 'success' : isFutur ? 'info' : 'neutral'}>
+                          {isEnCours ? 'En cours' : isFutur ? 'À venir' : 'Terminé'}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card className="rounded-2xl">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Entreprise</h2>
@@ -159,14 +240,16 @@ export default function AbonnementsPage() {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium text-gray-700">Date de début (≥ aujourd'hui)</span>
+                <span className="text-sm font-medium text-gray-700">Date de début</span>
                 <input
                   type="date"
-                  min={today}
+                  min={dateMinRetro}
+                  title="Peut être dans le passé si la période couvre encore aujourd’hui, ou une date future (abonnement à venir)"
                   value={form.dateDebut}
                   onChange={(e) => setForm((f) => ({ ...f, dateDebut: e.target.value }))}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 />
+                <span className="text-xs text-gray-500">Jusqu’à 12 mois en arrière si la fin de période n’est pas dépassée.</span>
               </label>
               <label className="flex flex-col gap-1">
                 <span className="text-sm font-medium text-gray-700">Durée (mois)</span>

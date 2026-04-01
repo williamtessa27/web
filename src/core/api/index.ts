@@ -123,6 +123,8 @@ export const entrepriseApi = {
 export const abonnementApi = {
   create: (data: { entrepriseId: string; montant: number; dateDebut: string; dureeMois: number }) =>
     apiClient.post<Abonnement>('/abonnements', data).then((r) => r.data),
+  /** Sans filtre : tous les abonnements (relation entreprise), Super Admin uniquement. */
+  listAll: () => apiClient.get<Abonnement[]>('/abonnements').then((r) => r.data),
   listByEntreprise: (entrepriseId: string) =>
     apiClient.get<Abonnement[]>(`/abonnements?entrepriseId=${encodeURIComponent(entrepriseId)}`).then((r) => r.data),
   mesAbonnements: () => apiClient.get<Abonnement[]>('/abonnements/mes').then((r) => r.data),

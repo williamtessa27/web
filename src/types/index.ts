@@ -113,6 +113,8 @@ export interface Abonnement {
   dureeMois: number;
   createdBy?: string | null;
   createdAt: string;
+  /** Présent quand la liste est chargée avec la relation entreprise (vue globale Super Admin). */
+  entreprise?: Pick<Entreprise, 'id' | 'nom' | 'devise'>;
 }
 
 // ─── Agence (Sprint 5) ───────────────────────────
