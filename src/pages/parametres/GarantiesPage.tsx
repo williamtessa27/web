@@ -131,7 +131,7 @@ export default function GarantiesPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Garanties & Assurances</h1>
-        <p className="text-gray-500 mt-1">Paramétrage des types de garanties et d&apos;assurances (Sprint 10)</p>
+        <p className="text-gray-500 mt-1">Paramétrage des types de garanties et d&apos;assurances </p>
       </div>
 
       {dashboardStats && (

@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { HiOutlineBanknotes, HiOutlineCreditCard, HiOutlineTruck, HiOutlineCog6Tooth } from 'react-icons/hi2';
+import { HiOutlineBanknotes, HiOutlineCreditCard, HiOutlineTruck, HiOutlineCog6Tooth, HiOutlinePlus } from 'react-icons/hi2';
 import { AppRoutes } from '@/config/routes.config';
 import Card from '@/components/ui/Card';
+import { TypeCalculCredit, TypeProduit } from '@/types';
 
 /** Lien paramétrage sur une carte (icône en haut à droite). */
 function CardParametreLink({ to, title }: { to: string; title: string }) {
@@ -64,7 +65,7 @@ export default function ProduitsMicrofinancePage() {
         </Card>
 
         <Card className="p-6 relative">
-          <CardParametreLink to={AppRoutes.GARANTIES} title="Paramétrage : garanties & crédit" />
+          <CardParametreLink to={AppRoutes.PRODUITS} title="Paramétrage : produits crédit" />
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-lg bg-amber-50 text-amber-600">
               <HiOutlineCreditCard className="h-8 w-8" />
@@ -72,11 +73,28 @@ export default function ProduitsMicrofinancePage() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Crédit</h2>
               <p className="text-sm text-gray-500 mt-1">
-                Prêts aux clients : création de dossiers crédit, validation, octroi, remboursement des échéances. Le paramétrage (garanties, assurances) se fait dans Paramètres.
+                Prêts aux clients : création de dossiers crédit, validation, octroi, remboursement des échéances. Les produits crédit définissent les plafonds, durées, intérêts et pénalités.
               </p>
-              <Link to={AppRoutes.CREDIT} className="text-sm text-primary-600 hover:underline mt-2 inline-block">
-                Dossiers crédit →
-              </Link>
+              <div className="mt-3 flex flex-wrap gap-3">
+                <Link
+                  to={AppRoutes.PRODUIT_CREATE}
+                  state={{
+                    returnTo: AppRoutes.PRODUITS_MICROFINANCE,
+                    initialType: TypeProduit.PRET,
+                    initialTypeCalculCredit: TypeCalculCredit.FORFAITAIRE_COURT_TERME,
+                  }}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
+                >
+                  <HiOutlinePlus className="h-4 w-4" />
+                  Créer un produit crédit
+                </Link>
+                <Link to={AppRoutes.PRODUITS} className="text-sm text-primary-600 hover:underline">
+                  Gérer les produits crédit →
+                </Link>
+                <Link to={AppRoutes.CREDIT} className="text-sm text-primary-600 hover:underline">
+                  Dossiers crédit →
+                </Link>
+              </div>
             </div>
           </div>
         </Card>
@@ -90,6 +108,9 @@ export default function ProduitsMicrofinancePage() {
           </li>
           <li>
             <strong>Produits microfinance</strong> : Collecte, Épargne, Crédit. Ce sont les trois piliers. La <strong>tontine</strong> est un type de plan de collecte (cotisation rotative), pas un pilier à part.
+          </li>
+          <li>
+            <strong>Produits crédit</strong> : produits de type prêt qui portent les règles de montant, durée, intérêt, pénalité et mode de calcul. Ils sont ensuite sélectionnés lors de la création d&apos;un dossier crédit.
           </li>
           <li>
             Une <strong>souscription</strong> lie un client à un plan de collecte (ex. collecte 1000 XAF/jour). Les collectes enregistrées alimentent ce plan.

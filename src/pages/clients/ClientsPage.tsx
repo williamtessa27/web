@@ -65,7 +65,10 @@ export default function ClientsPage() {
     try {
       const res = await clientApi.list({ limit: 200 });
       setData(res);
-    } catch {} finally { setLoading(false); }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erreur lors du chargement des clients');
+      setData(null);
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);

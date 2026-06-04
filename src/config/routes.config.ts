@@ -72,8 +72,10 @@ export const AppRoutes = {
   SUPER_ADMIN_ABONNEMENTS: '/super-admin/abonnements',
   SUPER_ADMIN_PARAMETRES: '/super-admin/parametres',
   MES_ABONNEMENTS: '/mes-abonnements',
-  // ─── Garanties & Assurances (Sprint 10) ─────────
+  // ─── Garanties & Assurances  ─────────
   GARANTIES: '/parametres/garanties',
+  // ─── Partenaires & conventions crédit ───────────
+  CREDIT_PARTNERS: '/parametres/partenaires-credit',
   // ─── Plans de collecte (paramétrage) ────────────
   PLANS_COLLECTE: '/parametres/plans-collecte',
   // ─── Paramètres (Admin entreprise) & Profil ──────

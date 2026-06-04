@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { HiOutlineArrowLeft, HiOutlineUserPlus, HiOutlineTrash, HiOutlinePencil, HiOutlineArrowDownTray, HiOutlineCheckCircle, HiOutlineArrowsPointingOut } from 'react-icons/hi2';
+import { HiOutlineArrowLeft, HiOutlineUserPlus, HiOutlineTrash, HiOutlinePencil, HiOutlineArrowDownTray, HiOutlineCheckCircle, HiOutlineArrowsPointingOut, HiOutlinePlus } from 'react-icons/hi2';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { clientApi, collecteurApi, zoneApi, produitApi, souscriptionApi, utilisateurApi, agenceApi } from '@/core/api';
+import { clientApi, collecteurApi, zoneApi, produitApi, souscriptionApi, utilisateurApi, agenceApi, creditApi } from '@/core/api';
 import { AppRoutes } from '@/config/routes.config';
 import { useHasPermission } from '@/config/permissions';
 import { useAuthStore } from '@/core/store/auth.store';
 import { RoleUtilisateur } from '@/types';
-import type { Client, ClientScoreResult, HistoriqueAffectationClient, Collecteur, Zone, Produit, Souscription, TypeModuleProduit, Agence, MouvementCompte } from '@/types';
+import type { Client, ClientCreditProfile, ClientScoreResult, HistoriqueAffectationClient, Collecteur, Zone, Produit, Souscription, TypeModuleProduit, Agence, MouvementCompte, CreditPartnerAgreement } from '@/types';
 import type { PaginatedResponse } from '@/types';
 import { StatutClient } from '@/types/enums';
 import { TypeProduit } from '@/types';
@@ -50,11 +50,13 @@ import Badge from '@/components/ui/Badge';
 import Select from '@/components/ui/Select';
 import Modal from '@/components/ui/Modal';
 import PhoneInput from '@/components/ui/PhoneInput';
+import MoneyInput from '@/components/ui/MoneyInput';
 import Input from '@/components/ui/Input';
 import ImageUpload from '@/components/ui/ImageUpload';
 import NationaliteCombobox from '@/components/ui/NationaliteCombobox';
 import InfoTooltip from '@/components/ui/InfoTooltip';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
+import { formatMoneyInput, formatXaf, parseMoneyInput } from '@/lib/money';
 
 /** Champs requis pour pouvoir valider un client (passage EN_ATTENTE_VALIDATION → ACTIF). */
 function getMissingValidationFields(c: Client | null): string[] {
@@ -153,6 +155,25 @@ export default function ClientDetailPage() {
   const [nouveauMotDePasse, setNouveauMotDePasse] = useState('');
   const [submittingRemettreAcces, setSubmittingRemettreAcces] = useState(false);
   const [score, setScore] = useState<ClientScoreResult | null>(null);
+  const [creditProfile, setCreditProfile] = useState<ClientCreditProfile | null>(null);
+  const [creditAgreements, setCreditAgreements] = useState<CreditPartnerAgreement[]>([]);
+  const [editingCreditProfile, setEditingCreditProfile] = useState(false);
+  const [submittingCreditProfile, setSubmittingCreditProfile] = useState(false);
+  const [creditProfileForm, setCreditProfileForm] = useState({
+    fonction: '',
+    employeur: '',
+    organisation: '',
+    salaireMensuel: '',
+    typeContrat: '',
+    dateFinContrat: '',
+    nombrePersonnesCharge: '',
+    domicile: '',
+    banquePaiement: '',
+    matriculeEmploye: '',
+    idCreditPartnerAgreement: '',
+    verifie: false,
+    notes: '',
+  });
   const [validatingClient, setValidatingClient] = useState(false);
   const [submittingRemettreActif, setSubmittingRemettreActif] = useState(false);
   const [showConfirmResilier, setShowConfirmResilier] = useState(false);
@@ -168,6 +189,24 @@ export default function ClientDetailPage() {
   const hasAdhesionCredit = hasAdhesion('CREDIT');
   const hasAdhesionEpargne = hasAdhesion('EPARGNE');
 
+  const fillCreditProfileForm = (profile: ClientCreditProfile | null) => {
+    setCreditProfileForm({
+      fonction: profile?.fonction ?? '',
+      employeur: profile?.employeur ?? '',
+      organisation: profile?.organisation ?? '',
+      salaireMensuel: formatMoneyInput(profile?.salaireMensuel),
+      typeContrat: profile?.typeContrat ?? '',
+      dateFinContrat: profile?.dateFinContrat ? profile.dateFinContrat.toString().slice(0, 10) : '',
+      nombrePersonnesCharge: profile?.nombrePersonnesCharge != null ? String(profile.nombrePersonnesCharge) : '',
+      domicile: profile?.domicile ?? '',
+      banquePaiement: profile?.banquePaiement ?? '',
+      matriculeEmploye: profile?.matriculeEmploye ?? '',
+      idCreditPartnerAgreement: profile?.idCreditPartnerAgreement ?? '',
+      verifie: profile?.verifie ?? false,
+      notes: profile?.notes ?? '',
+    });
+  };
+
   useEffect(() => {
     if (!id) return;
     Promise.all([
@@ -177,14 +216,19 @@ export default function ClientDetailPage() {
       agenceApi.list(false).catch(() => []),
       zoneApi.list().catch(() => []),
       clientApi.getScore(id).catch(() => null),
+      clientApi.getCreditProfile(id).catch(() => null),
+      creditApi.listPartnerAgreements().catch(() => []),
     ])
-      .then(([c, h, col, agencesList, zonesList, scoreData]) => {
+      .then(([c, h, col, agencesList, zonesList, scoreData, creditProfileData, agreementsData]) => {
         setClient(c);
         setHistorique(h);
         setCollecteurs(col);
         setAgences(Array.isArray(agencesList) ? agencesList : []);
         setZones(Array.isArray(zonesList) ? zonesList : []);
         setScore(scoreData ?? null);
+        setCreditProfile(creditProfileData ?? null);
+        setCreditAgreements(Array.isArray(agreementsData) ? agreementsData : []);
+        fillCreditProfileForm(creditProfileData ?? null);
         setNewCollecteurId(c.idCollecteur ?? '');
         setFormNom(c.nom ?? '');
         setFormPrenom(c.prenom ?? '');
@@ -321,6 +365,50 @@ export default function ClientDetailPage() {
       toast.error(Array.isArray(msg) ? msg[0] : msg);
     } finally {
       setSubmittingAdhesion(null);
+    }
+  };
+
+  const handleSaveCreditProfile = async () => {
+    if (!id) return;
+    const salaireMensuel = parseMoneyInput(creditProfileForm.salaireMensuel);
+    const missingVerifiedFields: string[] = [];
+    if (creditProfileForm.verifie) {
+      if (!creditProfileForm.idCreditPartnerAgreement) missingVerifiedFields.push('Convention partenaire');
+      if (salaireMensuel == null || salaireMensuel <= 0) missingVerifiedFields.push('Salaire mensuel');
+      if (!creditProfileForm.employeur.trim() && !creditProfileForm.organisation.trim()) {
+        missingVerifiedFields.push('Employeur ou organisation');
+      }
+    }
+    if (missingVerifiedFields.length > 0) {
+      toast.error(`Profil crédit non vérifiable : renseignez ${missingVerifiedFields.join(', ')}.`);
+      return;
+    }
+    setSubmittingCreditProfile(true);
+    try {
+      const saved = await clientApi.updateCreditProfile(id, {
+        fonction: creditProfileForm.fonction || undefined,
+        employeur: creditProfileForm.employeur || undefined,
+        organisation: creditProfileForm.organisation || undefined,
+        salaireMensuel,
+        typeContrat: creditProfileForm.typeContrat || undefined,
+        dateFinContrat: creditProfileForm.dateFinContrat || undefined,
+        nombrePersonnesCharge: creditProfileForm.nombrePersonnesCharge ? parseInt(creditProfileForm.nombrePersonnesCharge, 10) : undefined,
+        domicile: creditProfileForm.domicile || undefined,
+        banquePaiement: creditProfileForm.banquePaiement || undefined,
+        matriculeEmploye: creditProfileForm.matriculeEmploye || undefined,
+        idCreditPartnerAgreement: creditProfileForm.idCreditPartnerAgreement || null,
+        verifie: creditProfileForm.verifie,
+        notes: creditProfileForm.notes || undefined,
+      });
+      setCreditProfile(saved);
+      fillCreditProfileForm(saved);
+      setEditingCreditProfile(false);
+      toast.success('Profil crédit enregistré.');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? e?.message ?? 'Erreur';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    } finally {
+      setSubmittingCreditProfile(false);
     }
   };
 
@@ -1374,6 +1462,121 @@ export default function ClientDetailPage() {
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {isClientValidated(client) && hasAdhesionCredit && (
+        <Card>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Profil crédit</h2>
+              <p className="text-sm text-gray-500">
+                Informations utilisées pour l&apos;éligibilité crédit : revenu, employeur ou organisation, contrat et source de paiement.
+              </p>
+            </div>
+            {canEditClient && !editingCreditProfile && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  fillCreditProfileForm(creditProfile);
+                  setEditingCreditProfile(true);
+                }}
+              >
+                <HiOutlinePencil className="h-4 w-4" />
+                {creditProfile ? 'Modifier' : 'Renseigner'}
+              </Button>
+            )}
+          </div>
+
+          {!editingCreditProfile ? (
+            creditProfile ? (
+              <dl className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div><dt className="text-gray-500">Statut</dt><dd>{creditProfile.verifie ? <Badge variant="success">Vérifié</Badge> : <Badge variant="warning">Non vérifié</Badge>}</dd></div>
+                <div><dt className="text-gray-500">Salaire mensuel</dt><dd className="text-gray-900 font-medium">{formatXaf(creditProfile.salaireMensuel)}</dd></div>
+                <div><dt className="text-gray-500">Fonction</dt><dd className="text-gray-900">{creditProfile.fonction || '—'}</dd></div>
+                <div><dt className="text-gray-500">Employeur</dt><dd className="text-gray-900">{creditProfile.employeur || '—'}</dd></div>
+                <div><dt className="text-gray-500">Organisation</dt><dd className="text-gray-900">{creditProfile.organisation || '—'}</dd></div>
+                <div><dt className="text-gray-500">Convention</dt><dd className="text-gray-900">{creditProfile.creditPartnerAgreement ? `${creditProfile.creditPartnerAgreement.partner?.nom ?? 'Partenaire'} · ${creditProfile.creditPartnerAgreement.reference}` : '—'}</dd></div>
+                <div><dt className="text-gray-500">Contrat</dt><dd className="text-gray-900">{creditProfile.typeContrat || '—'}</dd></div>
+                <div><dt className="text-gray-500">Fin contrat</dt><dd className="text-gray-900">{creditProfile.dateFinContrat ? format(new Date(creditProfile.dateFinContrat), 'dd MMM yyyy', { locale: fr }) : '—'}</dd></div>
+                <div><dt className="text-gray-500">Personnes à charge</dt><dd className="text-gray-900">{creditProfile.nombrePersonnesCharge ?? '—'}</dd></div>
+                <div><dt className="text-gray-500">Banque/Microfinance</dt><dd className="text-gray-900">{creditProfile.banquePaiement || '—'}</dd></div>
+                <div><dt className="text-gray-500">Matricule employé</dt><dd className="text-gray-900">{creditProfile.matriculeEmploye || '—'}</dd></div>
+                <div className="md:col-span-2"><dt className="text-gray-500">Domicile</dt><dd className="text-gray-900">{creditProfile.domicile || '—'}</dd></div>
+                <div className="md:col-span-3"><dt className="text-gray-500">Notes</dt><dd className="text-gray-900">{creditProfile.notes || '—'}</dd></div>
+              </dl>
+            ) : (
+              <p className="text-sm text-amber-700 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2">
+                Aucun profil crédit renseigné. Ce client est lié au module Crédit, mais il ne pourra pas déposer de demande tant que son profil crédit n&apos;est pas complété et vérifié.
+              </p>
+            )
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Input label="Fonction" value={creditProfileForm.fonction} onChange={(e) => setCreditProfileForm((f) => ({ ...f, fonction: e.target.value }))} />
+                <Input label="Employeur" value={creditProfileForm.employeur} onChange={(e) => setCreditProfileForm((f) => ({ ...f, employeur: e.target.value }))} />
+                <Input label="Organisation" value={creditProfileForm.organisation} onChange={(e) => setCreditProfileForm((f) => ({ ...f, organisation: e.target.value }))} />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Convention partenaire</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={creditProfileForm.idCreditPartnerAgreement}
+                      onChange={(e) => setCreditProfileForm((f) => ({ ...f, idCreditPartnerAgreement: e.target.value }))}
+                      className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Aucune convention</option>
+                      {creditAgreements
+                        .filter((a) => a.statut === 'ACTIVE')
+                        .map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.partner?.nom ?? 'Partenaire'} · {a.reference}
+                          </option>
+                        ))}
+                    </select>
+                    <Link
+                      to={AppRoutes.CREDIT_PARTNERS}
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      title="Ajouter une convention partenaire"
+                      aria-label="Ajouter une convention partenaire"
+                    >
+                      <HiOutlinePlus className="h-5 w-5" />
+                    </Link>
+                  </div>
+                </div>
+                <MoneyInput label="Salaire mensuel (XAF)" value={creditProfileForm.salaireMensuel} onChange={(salaireMensuel) => setCreditProfileForm((f) => ({ ...f, salaireMensuel }))} />
+                <Input label="Type contrat" placeholder="CDI, CDD, convention..." value={creditProfileForm.typeContrat} onChange={(e) => setCreditProfileForm((f) => ({ ...f, typeContrat: e.target.value }))} />
+                <Input label="Date fin contrat" type="date" value={creditProfileForm.dateFinContrat} onChange={(e) => setCreditProfileForm((f) => ({ ...f, dateFinContrat: e.target.value }))} />
+                <Input
+                  label="Personnes à charge"
+                  inputMode="numeric"
+                  value={creditProfileForm.nombrePersonnesCharge}
+                  onChange={(e) => setCreditProfileForm((f) => ({ ...f, nombrePersonnesCharge: e.target.value.replace(/\D/g, '') }))}
+                />
+                <Input label="Banque/Microfinance de paiement" value={creditProfileForm.banquePaiement} onChange={(e) => setCreditProfileForm((f) => ({ ...f, banquePaiement: e.target.value }))} />
+                <Input label="Matricule employé" value={creditProfileForm.matriculeEmploye} onChange={(e) => setCreditProfileForm((f) => ({ ...f, matriculeEmploye: e.target.value }))} />
+              </div>
+              <Input label="Domicile" value={creditProfileForm.domicile} onChange={(e) => setCreditProfileForm((f) => ({ ...f, domicile: e.target.value }))} />
+              <Input label="Notes" value={creditProfileForm.notes} onChange={(e) => setCreditProfileForm((f) => ({ ...f, notes: e.target.value }))} />
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  checked={creditProfileForm.verifie}
+                  onChange={(e) => setCreditProfileForm((f) => ({ ...f, verifie: e.target.checked }))}
+                />
+                Profil vérifié
+              </label>
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <Button type="button" variant="secondary" onClick={() => { fillCreditProfileForm(creditProfile); setEditingCreditProfile(false); }}>
+                  Annuler
+                </Button>
+                <Button type="button" onClick={handleSaveCreditProfile} isLoading={submittingCreditProfile}>
+                  Enregistrer
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

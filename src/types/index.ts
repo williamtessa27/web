@@ -269,6 +269,15 @@ export interface Produit {
   fraisRetenue: number;
   dureeBlocageJours?: number;
   objectifEpargne?: string;
+  montantMin?: number | null;
+  montantMax?: number | null;
+  dureeMinMois?: number | null;
+  dureeMaxMois?: number | null;
+  typeCredit?: import('./enums').TypeCredit | null;
+  typeCalculCredit?: import('./enums').TypeCalculCredit;
+  tauxInteretCredit?: number | null;
+  penaliteRetardPourcent?: number | null;
+  dureeMaxJoursCredit?: number | null;
   idEntreprise: string;
   actif: boolean;
   createdAt: string;
@@ -286,8 +295,10 @@ export interface DossierCredit {
   montantAccorde?: number | null;
   tauxInteret: number;
   dureeMois: number;
+  dureeJours?: number | null;
   frequenceRemboursement: import('./enums').FrequenceRemboursementCredit;
   fraisDossier: number;
+  penaliteRetardPourcent?: number;
   objetCredit?: string | null;
   motifRefus?: string | null;
   dateDemande: string;
@@ -307,8 +318,83 @@ export interface Echeance {
   montantInteret: number;
   montantTotal: number;
   montantPaye: number;
+  montantPenalite?: number;
   datePaiement?: string | null;
   statut: import('./enums').StatutEcheance;
+}
+
+export interface CreditRepayment {
+  id: string;
+  idDossierCredit: string;
+  idEcheance: string;
+  idClient: string;
+  montant: number;
+  dateRemboursement: string;
+  mode: import('./enums').ModeRemboursementCredit;
+  statut: import('./enums').StatutRemboursementCredit;
+  reference?: string | null;
+  note?: string | null;
+  preuveUrl?: string | null;
+  idUtilisateurCreateur?: string | null;
+  echeance?: Echeance;
+  utilisateurCreateur?: Pick<Utilisateur, 'id' | 'nom' | 'prenom' | 'email'> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientCreditProfile {
+  id: string;
+  idClient: string;
+  fonction?: string | null;
+  employeur?: string | null;
+  organisation?: string | null;
+  salaireMensuel?: number | null;
+  typeContrat?: string | null;
+  dateFinContrat?: string | null;
+  nombrePersonnesCharge?: number | null;
+  domicile?: string | null;
+  banquePaiement?: string | null;
+  matriculeEmploye?: string | null;
+  idCreditPartnerAgreement?: string | null;
+  creditPartnerAgreement?: CreditPartnerAgreement | null;
+  verifie: boolean;
+  notes?: string | null;
+  idEntreprise: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreditPartner {
+  id: string;
+  nom: string;
+  type: import('./enums').TypeCreditPartner;
+  telephone?: string | null;
+  email?: string | null;
+  adresse?: string | null;
+  notes?: string | null;
+  actif: boolean;
+  idEntreprise: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreditPartnerAgreement {
+  id: string;
+  idPartner: string;
+  partner?: CreditPartner;
+  reference: string;
+  dateDebut: string;
+  dateFin?: string | null;
+  plafondGlobal?: number | null;
+  plafondParClient?: number | null;
+  tauxInteretMax?: number | null;
+  tauxPenaliteMax?: number | null;
+  modeRecouvrement: import('./enums').ModeRecouvrementCredit;
+  statut: import('./enums').StatutCreditConvention;
+  notes?: string | null;
+  idEntreprise: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SimulationEpargneResult {

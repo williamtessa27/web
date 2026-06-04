@@ -14,6 +14,9 @@ import type {
   UploadResponse,
   Collecteur,
   Client,
+  ClientCreditProfile,
+  CreditPartner,
+  CreditPartnerAgreement,
   Collecte,
   Produit,
   Souscription,
@@ -23,6 +26,7 @@ import type {
   DemandeRetrait,
   DossierCredit,
   Echeance,
+  CreditRepayment,
   Zone,
   Agence,
   Abonnement,
@@ -227,6 +231,10 @@ export const clientApi = {
   /** Sprint 11 — Score client (0–100, collectes validées, échéances en retard, ancienneté) */
   getScore: (id: string) =>
     apiClient.get<import('@/types').ClientScoreResult>(`/clients/${id}/score`).then((r) => r.data),
+  getCreditProfile: (id: string) =>
+    apiClient.get<ClientCreditProfile | null>(`/clients/${id}/credit-profile`).then((r) => r.data),
+  updateCreditProfile: (id: string, data: Partial<ClientCreditProfile>) =>
+    apiClient.patch<ClientCreditProfile>(`/clients/${id}/credit-profile`, data).then((r) => r.data),
   /** E3.5.1 — Historique des mouvements de compte (épargne) du client */
   mouvements: (id: string, params?: { page?: number; limit?: number }) =>
     apiClient.get<PaginatedResponse<MouvementCompte>>(`/clients/${id}/mouvements?${buildQuery(params ?? {})}`).then((r) => r.data),
@@ -604,6 +612,20 @@ export const creditApi = {
   octroyer: (id: string) => apiClient.post<DossierCredit>(`/credit/dossiers/${id}/octroyer`, {}).then((r) => r.data),
   getEcheances: (id: string) =>
     apiClient.get<Echeance[]>(`/credit/dossiers/${id}/echeances`).then((r) => r.data),
+  getRemboursements: (id: string) =>
+    apiClient.get<CreditRepayment[]>(`/credit/dossiers/${id}/remboursements`).then((r) => r.data),
+  createRemboursement: (
+    id: string,
+    data: {
+      idEcheance: string;
+      montant: number;
+      dateRemboursement: string;
+      mode?: string;
+      reference?: string;
+      note?: string;
+      preuveUrl?: string;
+    },
+  ) => apiClient.post<CreditRepayment>(`/credit/dossiers/${id}/remboursements`, data).then((r) => r.data),
   passerEnContentieux: (id: string, motif?: string) =>
     apiClient.post<DossierCredit>(`/credit/dossiers/${id}/passer-en-contentieux`, { motif }).then((r) => r.data),
   simulationRemboursementAnticipe: (id: string) =>
@@ -612,6 +634,17 @@ export const creditApi = {
     ).then((r) => r.data),
   remboursementAnticipe: (id: string) =>
     apiClient.post<DossierCredit>(`/credit/dossiers/${id}/remboursement-anticipe`, {}).then((r) => r.data),
+  listPartners: () => apiClient.get<CreditPartner[]>('/credit/partners').then((r) => r.data),
+  createPartner: (data: Partial<CreditPartner>) =>
+    apiClient.post<CreditPartner>('/credit/partners', data).then((r) => r.data),
+  updatePartner: (id: string, data: Partial<CreditPartner>) =>
+    apiClient.patch<CreditPartner>(`/credit/partners/${id}`, data).then((r) => r.data),
+  listPartnerAgreements: () =>
+    apiClient.get<CreditPartnerAgreement[]>('/credit/partner-agreements').then((r) => r.data),
+  createPartnerAgreement: (data: Partial<CreditPartnerAgreement>) =>
+    apiClient.post<CreditPartnerAgreement>('/credit/partner-agreements', data).then((r) => r.data),
+  updatePartnerAgreement: (id: string, data: Partial<CreditPartnerAgreement>) =>
+    apiClient.patch<CreditPartnerAgreement>(`/credit/partner-agreements/${id}`, data).then((r) => r.data),
 };
 
 // ─── Demandes de retrait ─────────────────────────
@@ -950,7 +983,7 @@ export const notificationApi = {
   unreadCount: () => apiClient.get<{ count: number }>('/notifications/unread-count').then((r) => r.data),
 };
 
-// ─── Garanties & Assurances (Sprint 10) ───────────
+// ─── Garanties & Assurances  ───────────
 export interface TypeGarantie {
   id: string;
   code: string;

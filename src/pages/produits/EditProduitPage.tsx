@@ -4,15 +4,17 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { produitApi } from '@/core/api';
 import type { Produit } from '@/types';
-import { TypeProduit } from '@/types';
+import { TypeCalculCredit, TypeProduit } from '@/types';
 import { AppRoutes } from '@/config/routes.config';
 import { useAuthStore } from '@/core/store/auth.store';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import MoneyInput from '@/components/ui/MoneyInput';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import Modal from '@/components/ui/Modal';
 import type { SimulationEpargneResult } from '@/types';
+import { formatMoneyInput, formatXaf, parseMoneyInput } from '@/lib/money';
 
 interface EditProduitForm {
   nom: string;
@@ -24,6 +26,14 @@ interface EditProduitForm {
   fraisRetenue: string;
   dureeBlocageJours: string;
   objectifEpargne: string;
+  montantMin: string;
+  montantMax: string;
+  dureeMinMois: string;
+  dureeMaxMois: string;
+  typeCalculCredit: TypeCalculCredit;
+  tauxInteretCredit: string;
+  penaliteRetardPourcent: string;
+  dureeMaxJoursCredit: string;
   actif: boolean;
 }
 
@@ -35,6 +45,13 @@ const typeOptions: { value: TypeProduit; label: string }[] = [
   { value: TypeProduit.PRET, label: 'Prêt' },
   { value: TypeProduit.LIBRE, label: 'Libre' },
 ];
+
+const parseDecimalInput = (value: string | number | null | undefined): number | null => {
+  const normalized = String(value ?? '').trim().replace(/\s/g, '').replace(',', '.');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 export default function EditProduitPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,10 +72,13 @@ export default function EditProduitPage() {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<EditProduitForm>();
 
   const selectedType = watch('type');
+  const selectedCalculCredit = watch('typeCalculCredit');
+  const isCreditProduct = selectedType === TypeProduit.PRET;
 
   useEffect(() => {
     if (!id) return;
@@ -71,11 +91,19 @@ export default function EditProduitPage() {
           description: p.description ?? '',
           type: p.type ?? TypeProduit.EPARGNE,
           dureeJours: p.dureeJours != null ? String(p.dureeJours) : '',
-          montantCible: p.montantCible != null ? String(p.montantCible) : '',
-          montantJournalier: String(p.montantJournalier ?? ''),
-          fraisRetenue: String(p.fraisRetenue ?? 0),
+          montantCible: formatMoneyInput(p.montantCible),
+          montantJournalier: formatMoneyInput(p.montantJournalier),
+          fraisRetenue: formatMoneyInput(p.fraisRetenue ?? 0),
           dureeBlocageJours: p.dureeBlocageJours != null ? String(p.dureeBlocageJours) : '',
           objectifEpargne: p.objectifEpargne ?? '',
+          montantMin: formatMoneyInput(p.montantMin),
+          montantMax: formatMoneyInput(p.montantMax),
+          dureeMinMois: p.dureeMinMois != null ? String(p.dureeMinMois) : '',
+          dureeMaxMois: p.dureeMaxMois != null ? String(p.dureeMaxMois) : '',
+          typeCalculCredit: p.typeCalculCredit ?? TypeCalculCredit.AMORTI,
+          tauxInteretCredit: p.tauxInteretCredit != null ? String(p.tauxInteretCredit) : '10',
+          penaliteRetardPourcent: p.penaliteRetardPourcent != null ? String(p.penaliteRetardPourcent) : '2',
+          dureeMaxJoursCredit: p.dureeMaxJoursCredit != null ? String(p.dureeMaxJoursCredit) : '30',
           actif: p.actif !== false,
         });
       })
@@ -108,11 +136,23 @@ export default function EditProduitPage() {
         description: data.description?.trim() || undefined,
         type: data.type,
         dureeJours: data.dureeJours.trim() ? Number(data.dureeJours) : null,
-        montantCible: data.montantCible.trim() ? Number(data.montantCible) : null,
-        montantJournalier: Number(data.montantJournalier),
-        fraisRetenue: Number(data.fraisRetenue),
+        montantCible: data.montantCible.trim() ? parseMoneyInput(data.montantCible) : null,
+        montantJournalier: data.type === TypeProduit.PRET ? 0 : parseMoneyInput(data.montantJournalier),
+        fraisRetenue: data.type === TypeProduit.PRET ? 0 : parseMoneyInput(data.fraisRetenue),
         ...(data.dureeBlocageJours.trim() ? { dureeBlocageJours: Number(data.dureeBlocageJours) } : {}),
         ...(data.objectifEpargne?.trim() ? { objectifEpargne: data.objectifEpargne.trim() } : {}),
+        ...(data.type === TypeProduit.PRET
+          ? {
+              montantMin: data.montantMin.trim() ? parseMoneyInput(data.montantMin) : null,
+              montantMax: data.montantMax.trim() ? parseMoneyInput(data.montantMax) : null,
+              dureeMinMois: data.dureeMinMois.trim() ? Number(data.dureeMinMois) : null,
+              dureeMaxMois: data.dureeMaxMois.trim() ? Number(data.dureeMaxMois) : null,
+              typeCalculCredit: data.typeCalculCredit,
+              tauxInteretCredit: parseDecimalInput(data.tauxInteretCredit),
+              penaliteRetardPourcent: parseDecimalInput(data.penaliteRetardPourcent),
+              dureeMaxJoursCredit: data.dureeMaxJoursCredit.trim() ? Number(data.dureeMaxJoursCredit) : null,
+            }
+          : {}),
         actif: data.actif,
       });
       toast.success(isPlanCollecte ? 'Plan de collecte mis à jour.' : 'Produit mis à jour.');
@@ -151,7 +191,7 @@ export default function EditProduitPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label={isPlanCollecte ? 'Nom du plan de collecte *' : 'Nom du produit *'}
-              placeholder="Ex: Épargne 31 jours"
+              placeholder="Ex: Crédit 31 jours"
               error={errors.nom?.message}
               {...register('nom', { required: 'Le nom est requis' })}
             />
@@ -184,56 +224,66 @@ export default function EditProduitPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Durée (jours) — optionnel, vide si Libre"
-              type="number"
-              min={1}
-              step={1}
-              placeholder="Ex: 30"
-              {...register('dureeJours')}
-            />
-            <Input
-              label="Cible (XAF) — montant total visé, optionnel"
-              type="number"
-              min={0}
-              step={1}
-              placeholder="Ex: 30000"
-              {...register('montantCible')}
-            />
-          </div>
+          {!isCreditProduct && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Durée (jours) — optionnel, vide si Libre"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Ex: 30"
+                  {...register('dureeJours')}
+                />
+                <MoneyInput
+                  label="Cible (XAF) — montant total visé, optionnel"
+                  value={watch('montantCible')}
+                  placeholder="30 000"
+                  onChange={(value) => setValue('montantCible', value, { shouldDirty: true, shouldValidate: true })}
+                />
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-            <Input
-              label="Montant journalier (XAF) *"
-              type="number"
-              min={minCotisation}
-              step={1}
-              error={errors.montantJournalier?.message}
-              {...register('montantJournalier', {
-                required: 'Obligatoire',
-                min: {
-                  value: minCotisation,
-                  message: minCotisation > 0
-                    ? `Minimum ${minCotisation.toLocaleString('fr-FR')} XAF (montant min. cotisation journalière, Paramètres)`
-                    : 'Doit être ≥ 0',
-                },
-              })}
-            />
-            {minCotisation > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
-                Minimum : {minCotisation.toLocaleString('fr-FR')} XAF (paramètre « Montant min. cotisation journalière »).
-              </p>
-            )}
-          </div>
-          </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <MoneyInput
+                    label="Montant journalier (XAF) *"
+                    value={watch('montantJournalier')}
+                    error={errors.montantJournalier?.message}
+                    onChange={(value) => setValue('montantJournalier', value, { shouldDirty: true, shouldValidate: true })}
+                  />
+                  {minCotisation > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Minimum : {formatXaf(minCotisation)} (paramètre « Montant min. cotisation journalière »).
+                    </p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
           <Input
             label="Description (optionnel)"
             placeholder="Brève description du plan"
             {...register('description')}
           />
+          <input type="hidden" {...register('montantCible')} />
+          <input type="hidden" {...register('montantJournalier', {
+            required: isCreditProduct ? false : 'Obligatoire',
+            validate: (value) => {
+              if (isCreditProduct) return true;
+              const amount = parseMoneyInput(value);
+              if (amount == null) return 'Obligatoire';
+              if (amount < minCotisation) {
+                return minCotisation > 0
+                  ? `Minimum ${formatXaf(minCotisation)} (montant min. cotisation journalière, Paramètres)`
+                  : 'Doit être ≥ 0';
+              }
+              return true;
+            },
+          })} />
+          <input type="hidden" {...register('fraisRetenue')} />
+          <input type="hidden" {...register('montantMin')} />
+          <input type="hidden" {...register('montantMax')} />
 
           {(selectedType === 'EPARGNE_BLOQUEE' || selectedType === 'EPARGNE_PROGRAMMEE' || selectedType === 'EPARGNE') && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -260,18 +310,72 @@ export default function EditProduitPage() {
             </div>
           )}
 
-          <div>
-            <Input
-              label="Montant retenu en fin de plan (XAF) — indicatif"
-              type="number"
-              min={0}
-              step={1}
-              {...register('fraisRetenue', { min: { value: 0, message: 'Min. 0' } })}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Retenue contractuelle à l&apos;échéance du plan. <strong>Indicatif</strong> : la déduction appliquée au retrait est le <strong>taux de commission</strong> (Paramètres), commun à tous les produits. 0 = aucune retenue prévue.
-            </p>
-          </div>
+          {selectedType === TypeProduit.PRET && (
+            <div className="space-y-4 border-t border-gray-100 pt-4">
+              <h2 className="text-sm font-semibold text-gray-900">Paramètres crédit</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <MoneyInput
+                  label="Montant min (XAF)"
+                  value={watch('montantMin')}
+                  onChange={(value) => setValue('montantMin', value, { shouldDirty: true, shouldValidate: true })}
+                />
+                <MoneyInput
+                  label="Montant max (XAF)"
+                  value={watch('montantMax')}
+                  onChange={(value) => setValue('montantMax', value, { shouldDirty: true, shouldValidate: true })}
+                />
+                <Input label="Durée min (mois)" type="number" min={1} step={1} {...register('dureeMinMois')} />
+                <Input label="Durée max (mois)" type="number" min={1} step={1} {...register('dureeMaxMois')} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mode de calcul</label>
+                  <select
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    {...register('typeCalculCredit')}
+                  >
+                    <option value={TypeCalculCredit.AMORTI}>Amorti classique</option>
+                    <option value={TypeCalculCredit.FORFAITAIRE_COURT_TERME}>Forfaitaire court terme</option>
+                  </select>
+                </div>
+                <Input
+                  label={selectedCalculCredit === TypeCalculCredit.FORFAITAIRE_COURT_TERME ? 'Intérêt forfaitaire (%)' : 'Taux intérêt annuel (%)'}
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  {...register('tauxInteretCredit')}
+                />
+                <Input
+                  label="Pénalité retard (% / jour)"
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  {...register('penaliteRetardPourcent')}
+                />
+                <Input
+                  label="Durée max court terme (jours)"
+                  type="number"
+                  min={1}
+                  step={1}
+                  disabled={selectedCalculCredit !== TypeCalculCredit.FORFAITAIRE_COURT_TERME}
+                  {...register('dureeMaxJoursCredit')}
+                />
+              </div>
+            </div>
+          )}
+
+          {!isCreditProduct && (
+            <div>
+              <MoneyInput
+                label="Montant retenu en fin de plan (XAF) — indicatif"
+                value={watch('fraisRetenue')}
+                onChange={(value) => setValue('fraisRetenue', value, { shouldDirty: true, shouldValidate: true })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Retenue contractuelle à l&apos;échéance du plan. <strong>Indicatif</strong> : la déduction appliquée au retrait est le <strong>taux de commission</strong> (Paramètres), commun à tous les produits. 0 = aucune retenue prévue.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <input

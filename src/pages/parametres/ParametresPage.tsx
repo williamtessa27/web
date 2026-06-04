@@ -73,7 +73,7 @@ export default function ParametresPage() {
   } = useForm<ParametresEntrepriseRequest & { logoUrl?: string }>({
     defaultValues: {
       logoUrl: '',
-      modulesActives: ['COLLECTE', 'EPARGNE'] as string[],
+      modulesActives: ['COLLECTE', 'EPARGNE', 'CREDIT'] as string[],
       smsConfirmationCollecte: true,
       smsRappelEcheance: true,
       retentionKycAnnee: undefined as number | null | undefined,
@@ -153,7 +153,7 @@ export default function ParametresPage() {
           frequenceCalculInteret: e.frequenceCalculInteret ?? null,
           methodeCalculInteret: e.methodeCalculInteret ?? MethodeCalculInteret.SIMPLE,
           precisionArrondiInteret: Number(e.precisionArrondiInteret) ?? 1,
-          modulesActives: Array.isArray(e.modulesActives) ? e.modulesActives : ['COLLECTE', 'EPARGNE'],
+          modulesActives: Array.isArray(e.modulesActives) ? e.modulesActives : ['COLLECTE', 'EPARGNE', 'CREDIT'],
           smsConfirmationCollecte: e.smsConfirmationCollecte ?? true,
           smsRappelEcheance: e.smsRappelEcheance ?? true,
           retentionKycAnnee: e.retentionKycAnnee ?? undefined,
@@ -590,7 +590,7 @@ export default function ParametresPage() {
                 const labels: Record<string, string> = {
                   COLLECTE: 'Collecte (cotisations, tournées, collecteurs)',
                   EPARGNE: 'Épargne (souscriptions, plans, demandes de retrait)',
-                  CREDIT: 'Crédit (bientôt disponible)',
+                  CREDIT: 'Crédit (dossiers, validation, échéances, remboursements)',
                 };
                 const active = (watch('modulesActives') ?? []).includes(code);
                 return (

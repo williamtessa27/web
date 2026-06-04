@@ -9,6 +9,23 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+function normalizeApiMessage(error: any): string {
+  const rawMessage =
+    error.response?.data?.message?.[0] ||
+    error.response?.data?.message ||
+    error.message ||
+    'Une erreur est survenue';
+
+  if (
+    error.response?.status === 403 &&
+    (!rawMessage || rawMessage === 'Forbidden' || rawMessage === 'Forbidden resource')
+  ) {
+    return "Accès refusé : votre rôle ou vos permissions ne permettent pas d'accéder à cette fonctionnalité. Contactez un administrateur si cet accès est nécessaire.";
+  }
+
+  return Array.isArray(rawMessage) ? rawMessage[0] : String(rawMessage);
+}
+
 // Flag pour éviter la boucle : un seul 401 déclenche logout + redirect
 let isHandling401 = false;
 
@@ -47,13 +64,14 @@ apiClient.interceptors.response.use(
       }
     }
 
-    const message =
-      error.response?.data?.message?.[0] ||
-      error.response?.data?.message ||
-      error.message ||
-      'Une erreur est survenue';
+    const message = normalizeApiMessage(error);
 
-    return Promise.reject({ message, statusCode: error.response?.status });
+    return Promise.reject({
+      message,
+      statusCode: error.response?.status,
+      details: error.response?.data?.details,
+      response: error.response,
+    });
   },
 );
 

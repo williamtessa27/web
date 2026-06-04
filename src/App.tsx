@@ -68,6 +68,7 @@ import MesAbonnementsPage from '@/pages/abonnements/MesAbonnementsPage';
 import ParametresPage from '@/pages/parametres/ParametresPage';
 import PermissionsPage from '@/pages/parametres/PermissionsPage';
 import GarantiesPage from '@/pages/parametres/GarantiesPage';
+import CreditPartnersPage from '@/pages/parametres/CreditPartnersPage';
 import PlansCollectePage from '@/pages/parametres/PlansCollectePage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 import UtilisateurDetailPage from '@/pages/utilisateurs/UtilisateurDetailPage';
@@ -142,6 +143,7 @@ export default function App() {
                 <Route path={AppRoutes.PARAMETRES} element={<ParametresPage />} />
                 <Route path={AppRoutes.PERMISSIONS} element={<PermissionsPage />} />
                 <Route path={AppRoutes.GARANTIES} element={<GarantiesPage />} />
+                <Route path={AppRoutes.CREDIT_PARTNERS} element={<CreditPartnersPage />} />
                 <Route path={AppRoutes.PLANS_COLLECTE} element={<PlansCollectePage />} />
               </Route>
 

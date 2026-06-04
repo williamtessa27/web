@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [dashboardDG, setDashboardDG] = useState<DashboardDGDto | null>(null);
   const [encoursEpargne, setEncoursEpargne] = useState<EncoursEpargneDto | null>(null);
   const [collectesParJour, setCollectesParJour] = useState<CollectesParJourPoint[]>([]);
@@ -62,6 +63,7 @@ export default function DashboardPage() {
 
   const loadStats = async () => {
     try {
+      setAccessError(null);
       const today = format(new Date(), 'yyyy-MM-dd');
       const dateDebut30 = format(subDays(new Date(), 30), 'yyyy-MM-dd');
       const [
@@ -74,15 +76,33 @@ export default function DashboardPage() {
         clientsSerie,
         encoursResult,
       ] = await Promise.allSettled([
-        rapportApi.dashboardDG().catch(() => null),
+        rapportApi.dashboardDG(),
         collecteApi.list({ limit: 500, date: today }),
         clientApi.list({ limit: 1 }),
         collecteurApi.list({ limit: 1 }),
         rapportApi.totauxCollectes({ dateDebut: dateDebut30, dateFin: today }),
         rapportApi.collectesParJour({ dateDebut: dateDebut30, dateFin: today }),
         rapportApi.nouveauxClientsParMois({ nbMois: 12 }),
-        rapportApi.encoursEpargne().catch(() => null),
+        rapportApi.encoursEpargne(),
       ]);
+
+      const failedRequests = [
+        dgResult,
+        collectesToday,
+        clients,
+        collecteurs,
+        rapport30,
+        collectesSerie,
+        clientsSerie,
+        encoursResult,
+      ].filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      const forbidden = failedRequests.find((r) => r.reason?.statusCode === 403);
+      if (forbidden) {
+        setAccessError(
+          forbidden.reason?.message ||
+            "Accès refusé : votre rôle ou vos permissions ne permettent pas d'afficher certaines données du tableau de bord.",
+        );
+      }
 
       if (dgResult.status === 'fulfilled' && dgResult.value) setDashboardDG(dgResult.value);
       if (encoursResult.status === 'fulfilled' && encoursResult.value) setEncoursEpargne(encoursResult.value);
@@ -102,8 +122,8 @@ export default function DashboardPage() {
         montant30Jours: Number(rapport?.totalMontant ?? 0),
         nbCollectes30Jours: rapport?.nombreCollectes ?? 0,
       });
-    } catch {
-      // Silent fail
+    } catch (err: any) {
+      setAccessError(err?.message || 'Impossible de charger les données du tableau de bord.');
     } finally {
       setLoading(false);
     }
@@ -128,6 +148,23 @@ export default function DashboardPage() {
         </h1>
         <p className="text-gray-500 mt-1">{t('dashboard.subtitle')}</p>
       </div>
+
+      {accessError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+          <div className="flex items-start gap-3">
+            <HiOutlineExclamationTriangle className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+            <div>
+              <p className="font-semibold">Accès limité au tableau de bord</p>
+              <p className="text-sm mt-1">{accessError}</p>
+              {user?.role && (
+                <p className="text-xs mt-2 text-amber-800">
+                  Rôle connecté : {user.role}. Certaines données peuvent rester vides tant que les permissions ne sont pas ajustées.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPIs principaux */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">

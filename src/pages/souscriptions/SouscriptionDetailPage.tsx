@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { HiOutlineArrowLeft, HiOutlineCalendarDays, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineClock } from 'react-icons/hi2';
+import { HiOutlineArrowLeft, HiOutlineCalendarDays, HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineClock, HiOutlineArrowDownTray, HiOutlineArrowUpTray } from 'react-icons/hi2';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, startOfDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { souscriptionApi, collecteApi } from '@/core/api';
+import { souscriptionApi, collecteApi, clientApi, demandeRetraitApi } from '@/core/api';
 import type { JoursCollectesResponse } from '@/core/api';
 import { AppRoutes } from '@/config/routes.config';
-import type { Souscription } from '@/types';
+import type { DemandeRetrait, MouvementCompte, Souscription } from '@/types';
 import { StatutSouscription } from '@/types';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -25,22 +25,49 @@ function formatMoney(amount: number) {
   return new Intl.NumberFormat('fr-FR').format(Number(amount)) + ' FCFA';
 }
 
+const mouvementLabels: Record<string, string> = {
+  COLLECTE: 'Dépôt',
+  INTERET: 'Intérêt crédité',
+  RETRAIT: 'Retrait',
+  COMMISSION: 'Commission',
+  AJUSTEMENT: 'Ajustement',
+  REMBOURSEMENT: 'Remboursement',
+};
+
+const retraitStatusLabels: Record<string, string> = {
+  EN_ATTENTE: 'En attente',
+  VALIDEE: 'Validée',
+  REFUSEE: 'Refusée',
+};
+
+const retraitStatusVariant: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
+  EN_ATTENTE: 'warning',
+  VALIDEE: 'success',
+  REFUSEE: 'danger',
+};
+
 export default function SouscriptionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [souscription, setSouscription] = useState<Souscription | null>(null);
   const [joursData, setJoursData] = useState<JoursCollectesResponse | null>(null);
+  const [mouvements, setMouvements] = useState<MouvementCompte[]>([]);
+  const [demandesRetrait, setDemandesRetrait] = useState<DemandeRetrait[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    Promise.all([
-      souscriptionApi.get(id),
-      souscriptionApi.get(id).then((s) => collecteApi.joursCollectes(s.idClient, id).catch(() => null)),
-    ])
-      .then(([sub, jours]) => {
+    souscriptionApi.get(id)
+      .then(async (sub) => {
+        const [jours, mouvementsClient, retraitsClient] = await Promise.all([
+          collecteApi.joursCollectes(sub.idClient, id).catch(() => null),
+          clientApi.mouvements(sub.idClient, { page: 1, limit: 100 }).catch(() => null),
+          demandeRetraitApi.list({ clientId: sub.idClient, limit: '100' }).catch(() => null),
+        ]);
         setSouscription(sub);
         setJoursData(jours ?? null);
+        setMouvements((mouvementsClient?.data ?? []).filter((m) => m.idSouscription === id));
+        setDemandesRetrait((retraitsClient?.data ?? []).filter((d) => d.idSouscription === id));
       })
       .catch(() => toast.error('Souscription introuvable'))
       .finally(() => setLoading(false));
@@ -50,6 +77,13 @@ export default function SouscriptionDetailPage() {
   if (!souscription) return null;
 
   const st = statutMap[souscription.statut];
+  const soldeCompte = mouvements.length > 0
+    ? mouvements.reduce((sum, m) => {
+        const amount = Number(m.montant ?? 0);
+        return ['COLLECTE', 'INTERET', 'AJUSTEMENT'].includes(m.type) ? sum + amount : sum - amount;
+      }, 0)
+    : Number(souscription.montantCollecte ?? 0) + Number(souscription.montantInterets ?? 0);
+  const interets = Number(souscription.montantInterets ?? 0);
   const pct =
     Number(souscription.montantCible) > 0
       ? Math.min(100, (Number(souscription.montantCollecte) / Number(souscription.montantCible)) * 100)
@@ -100,7 +134,7 @@ export default function SouscriptionDetailPage() {
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{souscription.codeSouscription}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Compte épargne {souscription.codeSouscription}</h1>
           <p className="text-gray-500 mt-1">
             {souscription.client?.nom}
             {souscription.client?.prenom ? ` ${souscription.client.prenom}` : ''}
@@ -114,23 +148,23 @@ export default function SouscriptionDetailPage() {
       </div>
 
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Récapitulatif</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Solde et progression</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Collecté</p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Solde compte</p>
+            <p className="text-xl font-bold text-gray-900">{formatMoney(soldeCompte)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Versé</p>
             <p className="text-xl font-bold text-gray-900">{formatMoney(souscription.montantCollecte)}</p>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Objectif</p>
-            <p className="text-xl font-bold text-gray-900">{formatMoney(souscription.montantCible)}</p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Intérêts</p>
+            <p className="text-xl font-bold text-gray-900">{formatMoney(interets)}</p>
           </div>
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Progression</p>
             <p className="text-xl font-bold text-primary-600">{pct.toFixed(0)}%</p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">Jours avec collecte</p>
-            <p className="text-xl font-bold text-gray-900">{souscription.joursCollectes}</p>
           </div>
         </div>
         <div className="mt-4 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -144,6 +178,68 @@ export default function SouscriptionDetailPage() {
           {dateFin ? ` au ${format(dateFin, 'd MMMM yyyy', { locale: fr })}` : ''}
         </p>
       </Card>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Mouvements du compte</h2>
+          {mouvements.length === 0 ? (
+            <p className="text-sm text-gray-500">Aucun mouvement rattaché à ce compte.</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {mouvements.slice(0, 8).map((m) => {
+                const isCredit = ['COLLECTE', 'INTERET', 'AJUSTEMENT'].includes(m.type);
+                return (
+                  <div key={m.id} className="py-3 flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${isCredit ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                      {isCredit ? <HiOutlineArrowDownTray className="h-5 w-5" /> : <HiOutlineArrowUpTray className="h-5 w-5" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">{mouvementLabels[m.type] ?? m.type}</p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {m.description || format(parseISO(m.createdAt), 'd MMM yyyy à HH:mm', { locale: fr })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-bold ${isCredit ? 'text-green-700' : 'text-red-700'}`}>
+                        {isCredit ? '+' : '-'}{formatMoney(m.montant)}
+                      </p>
+                      <p className="text-xs text-gray-500">Solde {formatMoney(m.soldeApres)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Retraits liés</h2>
+          {demandesRetrait.length === 0 ? (
+            <p className="text-sm text-gray-500">Aucune demande de retrait rattachée à ce compte.</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {demandesRetrait.slice(0, 8).map((d) => (
+                <div key={d.id} className="py-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{formatMoney(d.montantDemande)}</p>
+                    <p className="text-xs text-gray-500">
+                      {format(parseISO(d.dateDemande), 'd MMM yyyy', { locale: fr })}
+                      {' · '}
+                      {d.typeRetrait === 'ANTICIPE' ? 'Retrait anticipé' : 'Retrait normal'}
+                    </p>
+                    {Number(d.commissionPrelevee ?? 0) > 0 && (
+                      <p className="text-xs text-gray-500">Commission {formatMoney(Number(d.commissionPrelevee))}</p>
+                    )}
+                  </div>
+                  <Badge variant={retraitStatusVariant[d.statut] ?? 'info'}>
+                    {retraitStatusLabels[d.statut] ?? d.statut}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
 
       <Card>
         <h2 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">

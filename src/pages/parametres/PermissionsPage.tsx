@@ -19,7 +19,7 @@ export default function PermissionsPage() {
       .then((d) => {
         setData(d);
         setEdited(d.matrix);
-        const firstEditable = d.roles.find((r) => r === RoleUtilisateur.Gestionnaire || r === RoleUtilisateur.AdminEntreprise);
+        const firstEditable = d.roles.find((r) => r === RoleUtilisateur.Gestionnaire);
         setSelectedRole(firstEditable ?? d.roles[0] ?? null);
       })
       .catch((err: any) => {
@@ -55,7 +55,14 @@ export default function PermissionsPage() {
 
   if (loading || !data) return <PageLoader />;
 
-  const rolesEditable = [RoleUtilisateur.Gestionnaire, RoleUtilisateur.AdminEntreprise];
+  const rolesEditable = [
+    RoleUtilisateur.Gestionnaire,
+    RoleUtilisateur.Directeur,
+    RoleUtilisateur.ChefAgence,
+    RoleUtilisateur.GestionnaireCredit,
+    RoleUtilisateur.Caissier,
+    RoleUtilisateur.Auditeur,
+  ];
   const currentMatrix = edited[selectedRole ?? ''] ?? {};
 
   return (
@@ -63,7 +70,7 @@ export default function PermissionsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Gestion des permissions</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Définir les permissions accordées à chaque rôle. SuperAdmin conserve tous les droits.
+          Définir les permissions accordées à chaque rôle. SuperAdmin et AdminEntreprise conservent tous les droits.
           Les cases cochées ici pilotent le CRUD (boutons Créer, Modifier, Valider, Supprimer) dans chaque rubrique de l&apos;application.
         </p>
       </div>
@@ -91,6 +98,8 @@ export default function PermissionsPage() {
             <p className="text-sm text-gray-600 mb-4">
               {rolesEditable.includes(selectedRole as RoleUtilisateur)
                 ? `Modifier les permissions pour le rôle « ${selectedRole} ». Cliquez sur les cases pour activer/désactiver.`
+                : selectedRole === RoleUtilisateur.SuperAdmin || selectedRole === RoleUtilisateur.AdminEntreprise
+                  ? `Rôle « ${selectedRole} » : plein accès automatique, non modifiable.`
                 : `Rôle « ${selectedRole} » : lecture seule (non modifiable depuis cette interface).`}
             </p>
 

@@ -117,8 +117,8 @@ export default function UtilisateursPage() {
         collecteurs,
         total,
       });
-    } catch {
-      // Stats will show 0
+    } catch (err: any) {
+      toast.error(err?.message || 'Erreur lors du chargement des statistiques utilisateurs');
     }
   };
 
@@ -132,8 +132,8 @@ export default function UtilisateursPage() {
       if (tabFilter !== 'all') params.role = tabFilter;
       const res = await utilisateurApi.list(params);
       setData(res);
-    } catch {
-      toast.error('Erreur lors du chargement des utilisateurs');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erreur lors du chargement des utilisateurs');
       setData(null);
     } finally {
       setLoading(false);

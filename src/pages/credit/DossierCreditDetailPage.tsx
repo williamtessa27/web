@@ -3,23 +3,29 @@ import { Link, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
-import { HiOutlineArrowLeft, HiOutlineCheck, HiOutlineXMark, HiOutlineBanknotes, HiOutlineShieldCheck, HiOutlineDocumentText, HiOutlinePlus } from 'react-icons/hi2';
+import { HiOutlineArrowLeft, HiOutlineCheck, HiOutlineXMark, HiOutlineBanknotes, HiOutlineShieldCheck, HiOutlineDocumentText, HiOutlinePlus, HiOutlineReceiptPercent, HiOutlinePhoto } from 'react-icons/hi2';
 import { creditApi, garantieApi, assuranceApi, typeGarantieApi, typeAssuranceApi } from '@/core/api';
-import type { DossierCredit, Echeance } from '@/types';
+import type { DossierCredit, Echeance, CreditRepayment } from '@/types';
 import type { Garantie, Assurance, TypeGarantie, TypeAssurance } from '@/core/api';
-import { StatutDossierCredit, StatutEcheance } from '@/types/enums';
+import { ModeRemboursementCredit, StatutDossierCredit, StatutEcheance, StatutRemboursementCredit } from '@/types/enums';
 import { AppRoutes } from '@/config/routes.config';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
+import MoneyInput from '@/components/ui/MoneyInput';
+import ImageUpload from '@/components/ui/ImageUpload';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
+import { formatMoneyInput, parseMoneyInput } from '@/lib/money';
+
+const formatXaf = (value: unknown) => `${Number(value ?? 0).toLocaleString('fr-FR')} XAF`;
 
 const statutBadge = (statut: StatutDossierCredit) => {
   const map: Record<StatutDossierCredit, { label: string; variant: 'info' | 'success' | 'warning' | 'neutral' | 'danger' }> = {
     [StatutDossierCredit.BROUILLON]: { label: 'Brouillon', variant: 'neutral' },
     [StatutDossierCredit.EN_ATTENTE]: { label: 'En attente', variant: 'info' },
+    [StatutDossierCredit.EN_ATTENTE_VALIDATION_DIRECTION]: { label: 'Validation direction', variant: 'warning' },
     [StatutDossierCredit.VALIDE]: { label: 'Validé', variant: 'success' },
     [StatutDossierCredit.REJETE]: { label: 'Rejeté', variant: 'danger' },
     [StatutDossierCredit.ACTIF]: { label: 'Actif', variant: 'success' },
@@ -62,10 +68,32 @@ const assuranceStatutBadge = (statut: Assurance['statut']) => {
   return <Badge variant={variant}>{label}</Badge>;
 };
 
+const remboursementStatutBadge = (statut: StatutRemboursementCredit) => {
+  const map: Record<StatutRemboursementCredit, { label: string; variant: 'success' | 'neutral' | 'danger' }> = {
+    [StatutRemboursementCredit.VALIDE]: { label: 'Validé', variant: 'success' },
+    [StatutRemboursementCredit.ANNULE]: { label: 'Annulé', variant: 'danger' },
+  };
+  const { label, variant } = map[statut] ?? { label: statut, variant: 'neutral' as const };
+  return <Badge variant={variant}>{label}</Badge>;
+};
+
+const remboursementModeLabel = (mode: ModeRemboursementCredit | string) => {
+  const map: Record<string, string> = {
+    MANUEL: 'Manuel',
+    MOBILE_MONEY: 'Mobile Money',
+    ORANGE_MONEY: 'Orange Money',
+    VIREMENT: 'Virement',
+    PRELEVEMENT: 'Prélèvement',
+    RETENUE_SALAIRE: 'Retenue salaire',
+  };
+  return map[mode] ?? mode;
+};
+
 export default function DossierCreditDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [dossier, setDossier] = useState<DossierCredit | null>(null);
   const [echeances, setEcheances] = useState<Echeance[]>([]);
+  const [remboursements, setRemboursements] = useState<CreditRepayment[]>([]);
   const [garanties, setGaranties] = useState<Garantie[]>([]);
   const [assurances, setAssurances] = useState<Assurance[]>([]);
   const [typesGarantie, setTypesGarantie] = useState<TypeGarantie[]>([]);
@@ -74,6 +102,9 @@ export default function DossierCreditDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [showValider, setShowValider] = useState(false);
   const [showRejeter, setShowRejeter] = useState(false);
+  const [showOctroyer, setShowOctroyer] = useState(false);
+  const [showAddRemboursement, setShowAddRemboursement] = useState(false);
+  const [selectedRemboursement, setSelectedRemboursement] = useState<CreditRepayment | null>(null);
   const [montantAccorde, setMontantAccorde] = useState('');
   const [motifRefus, setMotifRefus] = useState('');
   const [showAddGarantie, setShowAddGarantie] = useState(false);
@@ -81,6 +112,14 @@ export default function DossierCreditDetailPage() {
   const [garantieValiderRefuser, setGarantieValiderRefuser] = useState<{ id: string; note: string } | null>(null);
   const [formGarantie, setFormGarantie] = useState({ idTypeGarantie: '', valeurEstimee: '', dateValidite: '', note: '', documentUrl: '' });
   const [formAssurance, setFormAssurance] = useState({ idTypeAssurance: '', montantCouvert: '', dateDebut: '', dateFin: '', prime: '0' });
+  const [formRemboursement, setFormRemboursement] = useState({
+    idEcheance: '',
+    montant: '',
+    dateRemboursement: new Date().toISOString().slice(0, 10),
+    reference: '',
+    note: '',
+    preuveUrl: '',
+  });
 
   const load = () => {
     if (!id) return;
@@ -88,14 +127,16 @@ export default function DossierCreditDetailPage() {
     Promise.all([
       creditApi.getDossier(id),
       creditApi.getEcheances(id),
+      creditApi.getRemboursements(id),
       garantieApi.listByDossier(id),
       assuranceApi.listByDossier(id),
       typeGarantieApi.list(false),
       typeAssuranceApi.list(false),
     ])
-      .then(([d, e, g, a, tg, ta]) => {
+      .then(([d, e, r, g, a, tg, ta]) => {
         setDossier(d);
         setEcheances(Array.isArray(e) ? e : []);
+        setRemboursements(Array.isArray(r) ? r : []);
         setGaranties(Array.isArray(g) ? g : []);
         setAssurances(Array.isArray(a) ? a : []);
         setTypesGarantie(Array.isArray(tg) ? tg : []);
@@ -108,6 +149,13 @@ export default function DossierCreditDetailPage() {
   useEffect(() => {
     load();
   }, [id]);
+
+  const openValiderModal = () => {
+    if (dossier) {
+      setMontantAccorde(formatMoneyInput(dossier.montantDemande));
+    }
+    setShowValider(true);
+  };
 
   const handleSoumettre = async () => {
     if (!id) return;
@@ -125,7 +173,7 @@ export default function DossierCreditDetailPage() {
 
   const handleValider = async () => {
     if (!id) return;
-    const montant = montantAccorde ? parseFloat(montantAccorde) : undefined;
+    const montant = parseMoneyInput(montantAccorde);
     setSubmitting(true);
     try {
       const d = await creditApi.valider(id, { montantAccorde: montant });
@@ -158,11 +206,11 @@ export default function DossierCreditDetailPage() {
 
   const handleOctroyer = async () => {
     if (!id) return;
-    if (!window.confirm('Confirmer l\'octroi du crédit ? L\'échéancier sera généré.')) return;
     setSubmitting(true);
     try {
       const d = await creditApi.octroyer(id);
       setDossier(d);
+      setShowOctroyer(false);
       load();
       toast.success('Crédit octroyé.');
     } catch (err: any) {
@@ -198,6 +246,55 @@ export default function DossierCreditDetailPage() {
       setDossier(d);
       load();
       toast.success('Dossier passé en contentieux.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erreur');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openRemboursementModal = () => {
+    const next = echeances.find((e) => e.statut !== StatutEcheance.PAYEE);
+    setFormRemboursement({
+      idEcheance: next?.id ?? '',
+      montant: next ? formatMoneyInput(Math.max(0, Number(next.montantTotal) - Number(next.montantPaye))) : '',
+      dateRemboursement: new Date().toISOString().slice(0, 10),
+      reference: '',
+      note: '',
+      preuveUrl: '',
+    });
+    setShowAddRemboursement(true);
+  };
+
+  const handleAddRemboursement = async () => {
+    if (!id) return;
+    const montant = parseMoneyInput(formRemboursement.montant);
+    if (!formRemboursement.idEcheance || !montant || !formRemboursement.dateRemboursement) {
+      toast.error('Sélectionnez une échéance, un montant et une date.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await creditApi.createRemboursement(id, {
+        idEcheance: formRemboursement.idEcheance,
+        montant,
+        dateRemboursement: formRemboursement.dateRemboursement,
+        mode: ModeRemboursementCredit.MANUEL,
+        reference: formRemboursement.reference || undefined,
+        note: formRemboursement.note || undefined,
+        preuveUrl: formRemboursement.preuveUrl || undefined,
+      });
+      toast.success('Remboursement enregistré.');
+      setShowAddRemboursement(false);
+      setFormRemboursement({
+        idEcheance: '',
+        montant: '',
+        dateRemboursement: new Date().toISOString().slice(0, 10),
+        reference: '',
+        note: '',
+        preuveUrl: '',
+      });
+      load();
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Erreur');
     } finally {
@@ -296,6 +393,11 @@ export default function DossierCreditDetailPage() {
   const clientNom = dossier.client
     ? [dossier.client.nom, dossier.client.prenom].filter(Boolean).join(' ')
     : dossier.idClient;
+  const echeancesOuvertes = echeances.filter((e) => e.statut !== StatutEcheance.PAYEE);
+  const selectedEcheance = echeancesOuvertes.find((e) => e.id === formRemboursement.idEcheance);
+  const selectedReste = selectedEcheance
+    ? Math.max(0, Number(selectedEcheance.montantTotal) - Number(selectedEcheance.montantPaye))
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -316,7 +418,7 @@ export default function DossierCreditDetailPage() {
           )}
           {dossier.statut === StatutDossierCredit.EN_ATTENTE && (
             <>
-              <Button variant="success" onClick={() => setShowValider(true)} disabled={submitting}>
+              <Button variant="success" onClick={openValiderModal} disabled={submitting}>
                 <HiOutlineCheck className="h-4 w-4" /> Valider
               </Button>
               <Button variant="danger" onClick={() => setShowRejeter(true)} disabled={submitting}>
@@ -326,7 +428,7 @@ export default function DossierCreditDetailPage() {
           )}
           {dossier.statut === StatutDossierCredit.VALIDE && (
             <>
-              <Button onClick={handleOctroyer} disabled={submitting || needGarantieForOctroi}>
+              <Button onClick={() => setShowOctroyer(true)} disabled={submitting || needGarantieForOctroi}>
                 <HiOutlineBanknotes className="h-4 w-4" /> Octroyer le crédit
               </Button>
               {needGarantieForOctroi && (
@@ -336,6 +438,9 @@ export default function DossierCreditDetailPage() {
           )}
           {dossier.statut === StatutDossierCredit.ACTIF && (
             <>
+              <Button onClick={openRemboursementModal} disabled={submitting}>
+                <HiOutlineReceiptPercent className="h-4 w-4" /> Enregistrer un remboursement
+              </Button>
               <Button variant="secondary" onClick={handleRemboursementAnticipe} disabled={submitting}>
                 Remboursement anticipé
               </Button>
@@ -457,6 +562,66 @@ export default function DossierCreditDetailPage() {
         )}
       </Card>
 
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <HiOutlineReceiptPercent className="h-5 w-5" />
+              Historique des remboursements
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Chaque ligne correspond à un remboursement enregistré et validé.
+            </p>
+          </div>
+          {dossier.statut === StatutDossierCredit.ACTIF && (
+            <Button size="sm" onClick={openRemboursementModal} disabled={submitting}>
+              <HiOutlinePlus className="h-4 w-4" /> Enregistrer
+            </Button>
+          )}
+        </div>
+        {remboursements.length === 0 ? (
+          <p className="text-gray-500 text-sm">Aucun remboursement enregistré pour ce dossier.</p>
+        ) : (
+          <div className="space-y-2">
+            {remboursements.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setSelectedRemboursement(r)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition hover:border-primary-200 hover:bg-primary-50/30"
+              >
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.2fr_1fr_1fr_1fr_auto] md:items-center">
+                  <div>
+                    <p className="text-xs text-gray-500">Date</p>
+                    <p className="font-medium text-gray-900">
+                      {format(new Date(r.dateRemboursement), 'dd MMM yyyy', { locale: fr })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Échéance</p>
+                    <p className="font-medium text-gray-900">Échéance {r.echeance?.numero ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Montant</p>
+                    <p className="font-semibold text-gray-900">{formatXaf(r.montant)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Mode / référence</p>
+                    <p className="font-medium text-gray-900">
+                      {remboursementModeLabel(r.mode)}{r.reference ? ` · ${r.reference}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 md:justify-end">
+                    {remboursementStatutBadge(r.statut)}
+                    <span className="text-sm font-medium text-primary-700">Détails</span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </Card>
+
       {echeances.length > 0 && (
         <Card>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Échéancier</h2>
@@ -493,12 +658,11 @@ export default function DossierCreditDetailPage() {
 
       <Modal open={showValider} onClose={() => setShowValider(false)} title="Valider le dossier" size="sm">
         <p className="text-gray-600 text-sm mb-4">Le montant accordé peut différer du montant demandé (optionnel).</p>
-        <Input
-          type="number"
+        <MoneyInput
           label="Montant accordé (XAF)"
           value={montantAccorde}
-          onChange={(e) => setMontantAccorde(e.target.value)}
-          placeholder={String(dossier.montantDemande)}
+          onChange={setMontantAccorde}
+          placeholder={formatMoneyInput(dossier.montantDemande)}
         />
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="ghost" onClick={() => setShowValider(false)}>Annuler</Button>
@@ -517,6 +681,188 @@ export default function DossierCreditDetailPage() {
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="ghost" onClick={() => setShowRejeter(false)}>Annuler</Button>
           <Button variant="danger" onClick={handleRejeter} isLoading={submitting}>Rejeter</Button>
+        </div>
+      </Modal>
+
+      <Modal open={showOctroyer} onClose={() => setShowOctroyer(false)} title="Octroyer le crédit" size="sm">
+        <div className="space-y-3 text-sm text-gray-600">
+          <p>
+            Confirmez l&apos;octroi du crédit. L&apos;échéancier sera généré automatiquement et le dossier passera en statut actif.
+          </p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="flex justify-between gap-4">
+              <span>Client</span>
+              <span className="font-medium text-gray-900 text-right">{clientNom}</span>
+            </div>
+            <div className="mt-2 flex justify-between gap-4">
+              <span>Montant accordé</span>
+              <span className="font-medium text-gray-900 text-right">
+                {Number(dossier.montantAccorde ?? dossier.montantDemande).toLocaleString('fr-FR')} XAF
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="ghost" onClick={() => setShowOctroyer(false)} disabled={submitting}>
+            Annuler
+          </Button>
+          <Button onClick={handleOctroyer} isLoading={submitting}>
+            Confirmer l&apos;octroi
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal open={showAddRemboursement} onClose={() => setShowAddRemboursement(false)} title="Enregistrer un remboursement" size="md">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Échéance *</label>
+            <select
+              value={formRemboursement.idEcheance}
+              onChange={(e) => {
+                const echeance = echeancesOuvertes.find((item) => item.id === e.target.value);
+                setFormRemboursement((p) => ({
+                  ...p,
+                  idEcheance: e.target.value,
+                  montant: echeance
+                    ? formatMoneyInput(Math.max(0, Number(echeance.montantTotal) - Number(echeance.montantPaye)))
+                    : p.montant,
+                }));
+              }}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">— Choisir une échéance —</option>
+              {echeancesOuvertes.map((e) => (
+                <option key={e.id} value={e.id}>
+                  Échéance {e.numero} · {format(new Date(e.dateEcheance), 'dd MMM yyyy', { locale: fr })} · reste {formatXaf(Number(e.montantTotal) - Number(e.montantPaye))}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedEcheance && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Reste à payer</span>
+                <span className="font-medium text-gray-900">{formatXaf(selectedReste)}</span>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <MoneyInput
+              label="Montant remboursé (XAF) *"
+              value={formRemboursement.montant}
+              onChange={(value) => setFormRemboursement((p) => ({ ...p, montant: value }))}
+              placeholder={selectedReste ? formatMoneyInput(selectedReste) : '0'}
+            />
+            <Input
+              label="Date de remboursement *"
+              type="date"
+              value={formRemboursement.dateRemboursement}
+              onChange={(e) => setFormRemboursement((p) => ({ ...p, dateRemboursement: e.target.value }))}
+            />
+          </div>
+          <Input
+            label="Référence (optionnel)"
+            value={formRemboursement.reference}
+            onChange={(e) => setFormRemboursement((p) => ({ ...p, reference: e.target.value }))}
+            placeholder="Reçu, bordereau, référence interne..."
+          />
+          <Input
+            label="Note (optionnel)"
+            value={formRemboursement.note}
+            onChange={(e) => setFormRemboursement((p) => ({ ...p, note: e.target.value }))}
+          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Preuve image (optionnel)</label>
+            <div className="flex items-center gap-4">
+              <ImageUpload
+                value={formRemboursement.preuveUrl}
+                onChange={(url) => setFormRemboursement((p) => ({ ...p, preuveUrl: url }))}
+                editable
+                folder="collect_app/credit/remboursements"
+                placeholderType="initials"
+                placeholderText="PR"
+                size="sm"
+                shape="square"
+                disabled={submitting}
+              />
+              <div className="text-sm text-gray-500">
+                <HiOutlinePhoto className="inline h-4 w-4 mr-1" />
+                Capture de reçu ou justificatif, facultatif.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <Button variant="ghost" onClick={() => setShowAddRemboursement(false)} disabled={submitting}>Annuler</Button>
+          <Button onClick={handleAddRemboursement} isLoading={submitting}>Enregistrer</Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!selectedRemboursement}
+        onClose={() => setSelectedRemboursement(null)}
+        title="Détail du remboursement"
+        size="sm"
+      >
+        {selectedRemboursement && (
+          <div className="space-y-3 text-sm">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Montant</span>
+                <span className="font-semibold text-gray-900">{formatXaf(selectedRemboursement.montant)}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-4">
+                <span className="text-gray-500">Statut</span>
+                <span>{remboursementStatutBadge(selectedRemboursement.statut)}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Date</span>
+                <span className="font-medium text-gray-900">
+                  {format(new Date(selectedRemboursement.dateRemboursement), 'dd MMM yyyy', { locale: fr })}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Échéance</span>
+                <span className="font-medium text-gray-900">
+                  Échéance {selectedRemboursement.echeance?.numero ?? '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Mode</span>
+                <span className="font-medium text-gray-900">
+                  {remboursementModeLabel(selectedRemboursement.mode)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Référence</span>
+                <span className="font-medium text-gray-900">{selectedRemboursement.reference || '—'}</span>
+              </div>
+              <div>
+                <p className="text-gray-500">Note</p>
+                <p className="mt-1 font-medium text-gray-900">{selectedRemboursement.note || '—'}</p>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-gray-500">Preuve</span>
+                {selectedRemboursement.preuveUrl ? (
+                  <a
+                    href={selectedRemboursement.preuveUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-primary-700 hover:underline"
+                  >
+                    Voir la preuve
+                  </a>
+                ) : (
+                  <span className="font-medium text-gray-900">—</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-end mt-5">
+          <Button variant="ghost" onClick={() => setSelectedRemboursement(null)}>Fermer</Button>
         </div>
       </Modal>
 

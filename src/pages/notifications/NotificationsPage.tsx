@@ -20,6 +20,11 @@ function getNotificationRoute(n: Notification): string | null {
     if (n.typeEntite === 'tournee') return AppRoutes.TOURNEES;
     if (n.typeEntite === 'client') return AppRoutes.CLIENTS;
     if (n.typeEntite === 'collecte') return AppRoutes.COLLECTES;
+    if (n.typeEntite === 'souscription' || n.typeEntite === 'mouvement_compte') return AppRoutes.SOUSCRIPTIONS;
+    if (n.typeEntite === 'demande_retrait') return AppRoutes.DEMANDES_RETRAIT;
+    if (n.typeEntite === 'dossier_credit' || n.typeEntite === 'credit_repayment') return AppRoutes.CREDIT;
+    if (n.typeEntite === 'garantie' || n.typeEntite === 'assurance') return AppRoutes.GARANTIES;
+    if (n.typeEntite === 'planning_collecte') return AppRoutes.TOURNEES;
     return null;
   }
   switch (n.typeEntite) {
@@ -31,6 +36,19 @@ function getNotificationRoute(n: Notification): string | null {
       return AppRoutes.COLLECTE_DETAIL.replace(':id', n.idEntite);
     case 'dossier_credit':
       return AppRoutes.CREDIT_DETAIL.replace(':id', n.idEntite);
+    case 'credit_repayment':
+      return AppRoutes.CREDIT;
+    case 'souscription':
+      return AppRoutes.SOUSCRIPTION_DETAIL.replace(':id', n.idEntite);
+    case 'demande_retrait':
+      return AppRoutes.DEMANDES_RETRAIT;
+    case 'mouvement_compte':
+      return AppRoutes.SOUSCRIPTIONS;
+    case 'garantie':
+    case 'assurance':
+      return AppRoutes.GARANTIES;
+    case 'planning_collecte':
+      return AppRoutes.TOURNEES;
     case 'collecteur':
       return AppRoutes.COLLECTEUR_DETAIL.replace(':id', n.idEntite);
     case 'abonnement':
@@ -52,6 +70,23 @@ function NotificationIcon({ typeEntite, type }: { typeEntite?: string | null; ty
   }
   if (type === 'abonnement_cree' || typeEntite === 'abonnement') {
     return <HiOutlineCreditCard className="h-5 w-5 text-primary-500" />;
+  }
+  if (
+    typeEntite === 'dossier_credit' ||
+    typeEntite === 'credit_repayment' ||
+    type?.startsWith('credit_') ||
+    type === 'rappel_echeance_credit'
+  ) {
+    return <HiOutlineCreditCard className="h-5 w-5 text-indigo-500" />;
+  }
+  if (
+    typeEntite === 'souscription' ||
+    typeEntite === 'demande_retrait' ||
+    typeEntite === 'mouvement_compte' ||
+    type?.startsWith('epargne_') ||
+    type?.startsWith('retrait_')
+  ) {
+    return <HiOutlineCreditCard className="h-5 w-5 text-emerald-500" />;
   }
   return <HiOutlineBell className="h-5 w-5 text-gray-400" />;
 }

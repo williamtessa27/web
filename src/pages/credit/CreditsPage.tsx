@@ -19,6 +19,7 @@ const statutBadge = (statut: StatutDossierCredit) => {
   const map: Record<StatutDossierCredit, { label: string; variant: 'info' | 'success' | 'warning' | 'neutral' | 'danger' }> = {
     [StatutDossierCredit.BROUILLON]: { label: 'Brouillon', variant: 'neutral' },
     [StatutDossierCredit.EN_ATTENTE]: { label: 'En attente', variant: 'info' },
+    [StatutDossierCredit.EN_ATTENTE_VALIDATION_DIRECTION]: { label: 'Validation direction', variant: 'warning' },
     [StatutDossierCredit.VALIDE]: { label: 'Validé', variant: 'success' },
     [StatutDossierCredit.REJETE]: { label: 'Rejeté', variant: 'danger' },
     [StatutDossierCredit.ACTIF]: { label: 'Actif', variant: 'success' },

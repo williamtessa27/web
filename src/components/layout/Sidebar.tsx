@@ -74,7 +74,18 @@ function getSidebarGroupsDefault(): Record<string, boolean> {
   } catch {
     /* ignore */
   }
-  return { operations: true, organisation: true, produitsServices: true, finance: true, clotureControle: true, parametres: true, plateforme: true };
+  return {
+    clients: true,
+    organisation: true,
+    produitsMicrofinance: true,
+    collecte: true,
+    epargne: true,
+    credit: true,
+    financeCaisse: true,
+    clotureControle: true,
+    parametres: true,
+    plateforme: true,
+  };
 }
 
 export function setSidebarGroupsInStorage(groups: Record<string, boolean>): void {
@@ -125,15 +136,14 @@ export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCo
       ],
     });
   } else {
-  // Opérations terrain
-  const opsItems: NavItem[] = [
-    { label: t('sidebar.clients'), to: AppRoutes.CLIENTS, icon: <HiOutlineUsers className="h-5 w-5" /> },
-    { label: t('sidebar.collectes'), to: AppRoutes.COLLECTES, icon: <HiOutlineBanknotes className="h-5 w-5" /> },
-  ];
-  if (isAdmin(role) || isGestionnaire(role)) {
-    opsItems.push({ label: t('sidebar.tournees'), to: AppRoutes.TOURNEES, icon: <HiOutlineTruck className="h-5 w-5" /> });
-  }
-  groups.push({ id: 'operations', labelKey: 'sidebar.groups.operations', items: opsItems });
+  // Clients
+  groups.push({
+    id: 'clients',
+    labelKey: 'sidebar.groups.clients',
+    items: [
+      { label: t('sidebar.clients'), to: AppRoutes.CLIENTS, icon: <HiOutlineUsers className="h-5 w-5" /> },
+    ],
+  });
 
   // Organisation
   const orgItems: NavItem[] = [];
@@ -154,46 +164,81 @@ export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCo
     groups.push({ id: 'organisation', labelKey: 'sidebar.groups.organisation', items: orgItems });
   }
 
-  // Produits & Services
-  const prodItems: NavItem[] = [];
+  // Produits microfinance transversaux (Collecte, Épargne, Crédit)
   if (isAdmin(role) || isGestionnaire(role)) {
-    prodItems.push(
-      { label: t('sidebar.produitsMicrofinance'), to: AppRoutes.PRODUITS_MICROFINANCE, icon: <HiOutlineCube className="h-5 w-5" /> },
-      { label: t('sidebar.plansCollecte'), to: AppRoutes.PLANS_COLLECTE, icon: <HiOutlineCube className="h-5 w-5" /> },
-      { label: t('sidebar.souscriptions'), to: AppRoutes.SOUSCRIPTIONS, icon: <HiOutlineDocumentText className="h-5 w-5" /> },
-    );
-  }
-  if (prodItems.length > 0) {
-    groups.push({ id: 'produitsServices', labelKey: 'sidebar.groups.produitsServices', items: prodItems });
+    groups.push({
+      id: 'produitsMicrofinance',
+      labelKey: 'sidebar.groups.produitsMicrofinance',
+      items: [
+        { label: t('sidebar.produitsMicrofinance'), to: AppRoutes.PRODUITS_MICROFINANCE, icon: <HiOutlineCube className="h-5 w-5" /> },
+      ],
+    });
   }
 
-  // Finance
+  // Collecte terrain
+  const collecteItems: NavItem[] = [
+    { label: t('sidebar.collectes'), to: AppRoutes.COLLECTES, icon: <HiOutlineBanknotes className="h-5 w-5" /> },
+  ];
+  if (isAdmin(role) || isGestionnaire(role)) {
+    collecteItems.push(
+      { label: t('sidebar.tournees'), to: AppRoutes.TOURNEES, icon: <HiOutlineTruck className="h-5 w-5" /> },
+      { label: t('sidebar.plansCollecte'), to: AppRoutes.PLANS_COLLECTE, icon: <HiOutlineCube className="h-5 w-5" /> },
+      { label: t('sidebar.historiquePerformance'), to: AppRoutes.RAPPORTS_PERFORMANCE, icon: <HiOutlineUserGroup className="h-5 w-5" /> },
+    );
+  }
+  groups.push({ id: 'collecte', labelKey: 'sidebar.groups.collecte', items: collecteItems });
+
+  // Épargne
+  const epargneItems: NavItem[] = [];
+  if (isAdmin(role) || isGestionnaire(role)) {
+    epargneItems.push(
+      { label: t('sidebar.comptesEpargne', 'Comptes épargne'), to: AppRoutes.SOUSCRIPTIONS, icon: <HiOutlineDocumentText className="h-5 w-5" /> },
+      { label: t('sidebar.demandesRetrait'), to: AppRoutes.DEMANDES_RETRAIT, icon: <HiOutlineArrowDownTray className="h-5 w-5" /> },
+      { label: t('sidebar.encoursEpargne'), to: AppRoutes.ENCOURS_EPARGNE, icon: <HiOutlineChartBar className="h-5 w-5" /> },
+    );
+  } else if (isDirecteur(role)) {
+    epargneItems.push(
+      { label: t('sidebar.encoursEpargne'), to: AppRoutes.ENCOURS_EPARGNE, icon: <HiOutlineChartBar className="h-5 w-5" /> },
+    );
+  }
+  if (canCreateDepotAgence) {
+    epargneItems.push(
+      { label: t('sidebar.depotAgence'), to: AppRoutes.DEPOT_AGENCE, icon: <HiOutlineBanknotes className="h-5 w-5" /> },
+    );
+  }
+  if (epargneItems.length > 0) {
+    groups.push({ id: 'epargne', labelKey: 'sidebar.groups.epargne', items: epargneItems });
+  }
+
+  // Crédit
+  const creditItems: NavItem[] = [];
+  if (isAdmin(role) || isGestionnaire(role)) {
+    creditItems.push({ label: t('sidebar.credit'), to: AppRoutes.CREDIT, icon: <HiOutlineCreditCard className="h-5 w-5" /> });
+    if (isAdmin(role)) {
+      creditItems.push(
+        { label: t('sidebar.garanties'), to: AppRoutes.GARANTIES, icon: <HiOutlineShieldCheck className="h-5 w-5" /> },
+        { label: t('sidebar.creditPartners', 'Partenaires crédit'), to: AppRoutes.CREDIT_PARTNERS, icon: <HiOutlineBuildingOffice2 className="h-5 w-5" /> },
+      );
+    }
+  }
+  if (creditItems.length > 0) {
+    groups.push({ id: 'credit', labelKey: 'sidebar.groups.credit', items: creditItems });
+  }
+
+  // Finance & caisse
   const finItems: NavItem[] = [];
   if (isAdmin(role) || isGestionnaire(role)) {
     finItems.push(
       { label: t('sidebar.comptabilite'), to: AppRoutes.COMPTABILITE, icon: <HiOutlineDocumentText className="h-5 w-5" /> },
       { label: t('sidebar.planComptes', 'Plan de comptes'), to: AppRoutes.COMPTABILITE_PLAN, icon: <HiOutlineCog6Tooth className="h-5 w-5" /> },
       { label: t('sidebar.commissions'), to: AppRoutes.COMMISSIONS, icon: <HiOutlineCurrencyDollar className="h-5 w-5" /> },
-      { label: t('sidebar.demandesRetrait'), to: AppRoutes.DEMANDES_RETRAIT, icon: <HiOutlineArrowDownTray className="h-5 w-5" /> },
-      { label: t('sidebar.encoursEpargne'), to: AppRoutes.ENCOURS_EPARGNE, icon: <HiOutlineChartBar className="h-5 w-5" /> },
-      { label: t('sidebar.credit'), to: AppRoutes.CREDIT, icon: <HiOutlineCreditCard className="h-5 w-5" /> },
-      { label: t('sidebar.historiquePerformance'), to: AppRoutes.RAPPORTS_PERFORMANCE, icon: <HiOutlineUserGroup className="h-5 w-5" /> },
-    );
-  } else if (isDirecteur(role)) {
-    finItems.push(
-      { label: t('sidebar.encoursEpargne'), to: AppRoutes.ENCOURS_EPARGNE, icon: <HiOutlineChartBar className="h-5 w-5" /> },
     );
   }
   if (role === RoleUtilisateur.Caissier && !finItems.some((i) => i.to === AppRoutes.COMPTABILITE)) {
     finItems.push({ label: t('sidebar.comptabilite'), to: AppRoutes.COMPTABILITE, icon: <HiOutlineDocumentText className="h-5 w-5" /> });
   }
-  if (canCreateDepotAgence) {
-    finItems.push(
-      { label: t('sidebar.depotAgence'), to: AppRoutes.DEPOT_AGENCE, icon: <HiOutlineBanknotes className="h-5 w-5" /> },
-    );
-  }
   if (finItems.length > 0) {
-    groups.push({ id: 'finance', labelKey: 'sidebar.groups.finance', items: finItems });
+    groups.push({ id: 'financeCaisse', labelKey: 'sidebar.groups.financeCaisse', items: finItems });
   }
 
   // Clôture & Contrôle
@@ -215,7 +260,6 @@ export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCo
   if (isAdmin(role)) {
     const paramItems: NavItem[] = [
       { label: t('sidebar.parametres'), to: AppRoutes.PARAMETRES, icon: <HiOutlineCog6Tooth className="h-5 w-5" /> },
-      { label: t('sidebar.garanties'), to: AppRoutes.GARANTIES, icon: <HiOutlineShieldCheck className="h-5 w-5" /> },
       { label: t('sidebar.permissions'), to: AppRoutes.PERMISSIONS, icon: <HiOutlineLockClosed className="h-5 w-5" /> },
     ];
     paramItems.push({ label: t('sidebar.mesAbonnements', 'Mes abonnements'), to: AppRoutes.MES_ABONNEMENTS, icon: <HiOutlineCreditCard className="h-5 w-5" /> });

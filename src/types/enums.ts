@@ -122,6 +122,7 @@ export enum TypeRetrait {
 export enum StatutDossierCredit {
   BROUILLON = 'BROUILLON',
   EN_ATTENTE = 'EN_ATTENTE',
+  EN_ATTENTE_VALIDATION_DIRECTION = 'EN_ATTENTE_VALIDATION_DIRECTION',
   VALIDE = 'VALIDE',
   REJETE = 'REJETE',
   ACTIF = 'ACTIF',
@@ -135,11 +136,54 @@ export enum TypeCredit {
   SOLIDAIRE = 'SOLIDAIRE',
 }
 
+export enum TypeCalculCredit {
+  AMORTI = 'AMORTI',
+  FORFAITAIRE_COURT_TERME = 'FORFAITAIRE_COURT_TERME',
+}
+
+export enum TypeCreditPartner {
+  ENTREPRISE = 'ENTREPRISE',
+  BANQUE = 'BANQUE',
+  MICROFINANCE = 'MICROFINANCE',
+  ASSOCIATION = 'ASSOCIATION',
+  MUTUELLE = 'MUTUELLE',
+  MARCHAND = 'MARCHAND',
+  AUTRE = 'AUTRE',
+}
+
+export enum ModeRecouvrementCredit {
+  RETENUE_SALAIRE = 'RETENUE_SALAIRE',
+  PRELEVEMENT_BANCAIRE = 'PRELEVEMENT_BANCAIRE',
+  REMBOURSEMENT_MOBILE_MONEY = 'REMBOURSEMENT_MOBILE_MONEY',
+  REMBOURSEMENT_CAISSE = 'REMBOURSEMENT_CAISSE',
+  MIXTE = 'MIXTE',
+}
+
+export enum StatutCreditConvention {
+  ACTIVE = 'ACTIVE',
+  SUSPENDUE = 'SUSPENDUE',
+  EXPIREE = 'EXPIREE',
+}
+
 export enum StatutEcheance {
   A_PAYER = 'A_PAYER',
   PARTIEL = 'PARTIEL',
   PAYEE = 'PAYEE',
   EN_RETARD = 'EN_RETARD',
+}
+
+export enum ModeRemboursementCredit {
+  MANUEL = 'MANUEL',
+  MOBILE_MONEY = 'MOBILE_MONEY',
+  ORANGE_MONEY = 'ORANGE_MONEY',
+  VIREMENT = 'VIREMENT',
+  PRELEVEMENT = 'PRELEVEMENT',
+  RETENUE_SALAIRE = 'RETENUE_SALAIRE',
+}
+
+export enum StatutRemboursementCredit {
+  VALIDE = 'VALIDE',
+  ANNULE = 'ANNULE',
 }
 
 export enum FrequenceRemboursementCredit {
