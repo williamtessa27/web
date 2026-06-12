@@ -73,6 +73,7 @@ import PlansCollectePage from '@/pages/parametres/PlansCollectePage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 import UtilisateurDetailPage from '@/pages/utilisateurs/UtilisateurDetailPage';
 import NotificationsPage from '@/pages/notifications/NotificationsPage';
+import ImportExportPage from '@/pages/data-transfer/ImportExportPage';
 
 /** Redirige le Super Admin vers le tableau de bord plateforme s'il accède à Dashboard ou Notifications. */
 function DashboardOrRedirect() {
@@ -170,6 +171,7 @@ export default function App() {
               <Route path={AppRoutes.CLIENTS} element={<ClientsPage />} />
               <Route path={AppRoutes.CLIENT_CREATE} element={<CreateClientPage />} />
               <Route path={AppRoutes.CLIENT_DETAIL} element={<ClientDetailPage />} />
+              <Route path={AppRoutes.IMPORT_EXPORT} element={<ImportExportPage />} />
 
               {/* Collectes */}
               <Route path={AppRoutes.COLLECTES} element={<CollectesPage />} />

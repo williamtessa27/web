@@ -95,6 +95,42 @@ const canRemettreActif = (role?: string) =>
 const isClientValidated = (c: Client) =>
   c.statut === StatutClient.ACTIF && c.actif;
 
+function InfoField({
+  label,
+  children,
+  span = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  span?: boolean;
+}) {
+  return (
+    <div className={span ? 'md:col-span-2 xl:col-span-3' : ''}>
+      <dt className="text-xs font-medium text-gray-500">{label}</dt>
+      <dd className="mt-1 min-w-0 break-words text-sm font-medium leading-6 text-gray-900">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+function InfoSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t border-gray-100 pt-5 first:border-t-0 first:pt-0">
+      <h3 className="mb-4 text-sm font-semibold text-gray-900">{title}</h3>
+      <dl className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+        {children}
+      </dl>
+    </section>
+  );
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
   const currentUser = useAuthStore((s) => s.user);
@@ -618,7 +654,7 @@ export default function ClientDetailPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={() => setShowReaffecter(!showReaffecter)}>
-            <HiOutlineUserPlus className="h-4 w-4" /> Réaffecter
+            <HiOutlineUserPlus className="h-4 w-4" /> Réaffecter un collecteur
           </Button>
           {client.statut !== StatutClient.RESILIE && (
             <Button variant="ghost" size="sm" onClick={() => setShowConfirmResilier(true)} disabled={submitting}>
@@ -848,116 +884,139 @@ export default function ClientDetailPage() {
           </div>
         </div>
         {!editingInfo ? (
-          <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><dt className="text-sm text-gray-500">Nom</dt><dd className="text-gray-900">{client.nom || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Prénom</dt><dd className="text-gray-900">{client.prenom || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Type client</dt><dd className="text-gray-900">{client.typeClient === 'GROUPEMENT' ? 'Groupement' : 'Personne physique'}</dd></div>
-            {client.typeClient === 'GROUPEMENT' && (
-              <div><dt className="text-sm text-gray-500">Nombre de membres</dt><dd className="text-gray-900">{client.nombreMembres ?? '—'}</dd></div>
-            )}
-            <div><dt className="text-sm text-gray-500">Genre</dt><dd className="text-gray-900">{client.genre === 'MASCULIN' ? 'Masculin' : client.genre === 'FEMININ' ? 'Féminin' : client.genre || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Date de naissance</dt><dd className="text-gray-900">{client.dateNaissance ? format(new Date(client.dateNaissance), 'dd MMM yyyy', { locale: fr }) : '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Lieu de naissance</dt><dd className="text-gray-900">{client.lieuNaissance || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Nationalité</dt><dd className="text-gray-900">{client.nationalite || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Profession</dt><dd className="text-gray-900">{client.profession || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Situation matrimoniale</dt><dd className="text-gray-900">{client.situationMatrimoniale === 'CELIBATAIRE' ? 'Célibataire' : client.situationMatrimoniale === 'MARIE' ? 'Marié(e)' : client.situationMatrimoniale === 'DIVORCE' ? 'Divorcé(e)' : client.situationMatrimoniale === 'VEUF' ? 'Veuf(ve)' : client.situationMatrimoniale || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Téléphone</dt><dd className="text-gray-900">{client.telephone || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Téléphone secondaire</dt><dd className="text-gray-900">{client.telephoneSecondaire || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Email</dt><dd className="text-gray-900">{client.email || '—'}</dd></div>
-            <div className="md:col-span-2"><dt className="text-sm text-gray-500">Adresse</dt><dd className="text-gray-900">{client.adresse || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Ville</dt><dd className="text-gray-900">{client.ville || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Quartier</dt><dd className="text-gray-900">{client.quartier || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Pays</dt><dd className="text-gray-900">{client.pays || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Agence</dt>
-              <dd className="mt-0.5">
+          <div className="space-y-7">
+            <InfoSection title="Identité">
+              <InfoField label="Nom">{client.nom || '—'}</InfoField>
+              <InfoField label="Prénom">{client.prenom || '—'}</InfoField>
+              <InfoField label="Type client">
+                {client.typeClient === 'GROUPEMENT' ? 'Groupement' : 'Personne physique'}
+              </InfoField>
+              {client.typeClient === 'GROUPEMENT' && (
+                <InfoField label="Nombre de membres">{client.nombreMembres ?? '—'}</InfoField>
+              )}
+              <InfoField label="Genre">
+                {client.genre === 'MASCULIN' ? 'Masculin' : client.genre === 'FEMININ' ? 'Féminin' : client.genre || '—'}
+              </InfoField>
+              <InfoField label="Date de naissance">
+                {client.dateNaissance ? format(new Date(client.dateNaissance), 'dd MMM yyyy', { locale: fr }) : '—'}
+              </InfoField>
+              <InfoField label="Lieu de naissance">{client.lieuNaissance || '—'}</InfoField>
+              <InfoField label="Nationalité">{client.nationalite || '—'}</InfoField>
+              <InfoField label="Profession">{client.profession || '—'}</InfoField>
+              <InfoField label="Situation matrimoniale">
+                {client.situationMatrimoniale === 'CELIBATAIRE' ? 'Célibataire' : client.situationMatrimoniale === 'MARIE' ? 'Marié(e)' : client.situationMatrimoniale === 'DIVORCE' ? 'Divorcé(e)' : client.situationMatrimoniale === 'VEUF' ? 'Veuf(ve)' : client.situationMatrimoniale || '—'}
+              </InfoField>
+            </InfoSection>
+
+            <InfoSection title="Contact et adresse">
+              <InfoField label="Téléphone">{client.telephone || '—'}</InfoField>
+              <InfoField label="Téléphone secondaire">{client.telephoneSecondaire || '—'}</InfoField>
+              <InfoField label="Email">{client.email || '—'}</InfoField>
+              <InfoField label="Adresse" span>{client.adresse || '—'}</InfoField>
+              <InfoField label="Ville">{client.ville || '—'}</InfoField>
+              <InfoField label="Quartier">{client.quartier || '—'}</InfoField>
+              <InfoField label="Pays">{client.pays || '—'}</InfoField>
+            </InfoSection>
+
+            <InfoSection title="Rattachement opérationnel">
+              <InfoField label="Agence">
                 <Badge variant="info">
                   {client.agence?.nom ?? agences.find((a) => a.id === client.idAgence)?.nom ?? (client.idAgence ? '—' : 'Non assignée')}
                 </Badge>
-              </dd>
-            </div>
-            <div><dt className="text-sm text-gray-500">Zone</dt>
-              <dd className="text-gray-900">
+              </InfoField>
+              <InfoField label="Zone">
                 {client.zone?.nom ?? zones.find((z) => z.id === client.idZone)?.nom ?? (client.idZone ? '—' : 'Non assignée')}
-              </dd>
-            </div>
-            <div><dt className="text-sm text-gray-500">Collecteur assigné</dt>
-              <dd className="mt-0.5">
+              </InfoField>
+              <InfoField label="Collecteur assigné">
                 <Badge variant="info">
                   {client.collecteur?.utilisateur?.nom ?? client.collecteur?.codeCollecteur ?? 'Aucun'}
                 </Badge>
-              </dd>
-            </div>
-            {hasAdhesionEpargne && (
-              <div className="md:col-span-2 rounded-xl border-2 border-emerald-200 bg-emerald-50/60 p-4 ring-1 ring-emerald-100/50">
-                <dt className="text-sm font-semibold text-emerald-800 mb-2 flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">$</span>
-                  Solde
-                  <InfoTooltip
-                    content={
-                      <>
-                        <strong>Épargne disponible</strong> sur le compte client (en XAF).
-                        <br /><br />
-                        <strong>Calcul :</strong> somme des collectes validées, moins les retraits effectués. Seules les collectes validées augmentent le solde ; les retraits validés le diminuent.
-                        <br /><br />
-                        Le client peut consulter son solde sur l&apos;app mobile et demander un retrait (sous conditions : période minimale, commission, etc.).
-                      </>
-                    }
-                  />
-                </dt>
-                <dd className="text-emerald-900 font-bold text-lg">
-                  {Number(client.solde).toLocaleString('fr-FR')} XAF
-                </dd>
+              </InfoField>
+            </InfoSection>
+
+            {(hasAdhesionEpargne || (score !== null && hasAdhesionCredit)) && (
+              <div className="grid grid-cols-1 gap-4 border-t border-gray-100 pt-5 lg:grid-cols-2">
+                {hasAdhesionEpargne && (
+                  <dl className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
+                    <dt className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">$</span>
+                      Solde
+                      <InfoTooltip
+                        content={
+                          <>
+                            <strong>Épargne disponible</strong> sur le compte client (en XAF).
+                            <br /><br />
+                            <strong>Calcul :</strong> somme des collectes validées, moins les retraits effectués.
+                          </>
+                        }
+                      />
+                    </dt>
+                    <dd className="text-lg font-bold text-emerald-900">
+                      {Number(client.solde).toLocaleString('fr-FR')} XAF
+                    </dd>
+                  </dl>
+                )}
+                {score !== null && hasAdhesionCredit && (
+                  <dl className="rounded-lg border border-primary-200 bg-primary-50/50 p-4">
+                    <dt className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary-800">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700">#</span>
+                      Score client
+                      <InfoTooltip
+                        content={
+                          <>
+                            <strong>Indicateur de confiance (0–100)</strong> utilisé pour l&apos;aide à la décision crédit.
+                          </>
+                        }
+                      />
+                    </dt>
+                    <dd className="flex flex-wrap items-center gap-3">
+                      <Badge variant="info" className="px-3 py-1 text-base font-bold">
+                        {score.score} / 100
+                      </Badge>
+                      <span className="text-xs leading-5 text-gray-600">
+                        {score.details.nbCollectesValidees} collecte(s) validée(s) · {score.details.nbEcheancesEnRetard} retard(s) · {score.details.moisAnciennete} mois
+                      </span>
+                    </dd>
+                  </dl>
+                )}
               </div>
             )}
-            {score !== null && hasAdhesionCredit && (
-              <div className="md:col-span-2 rounded-xl border border-primary-200 bg-primary-50/50 p-4">
-                <dt className="text-sm font-semibold text-primary-800 mb-2 flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary-100 text-primary-700 text-xs font-bold">#</span>
-                  Score client
-                  <InfoTooltip
-                    content={
-                      <>
-                        <strong>Indicateur de confiance (0–100)</strong> utilisé pour l&apos;aide à la décision crédit.
-                        <br /><br />
-                        <strong>Calcul :</strong> base 50, puis +2 pts par collecte validée (max +25), −10 pts par échéance en retard (max −40), +1 pt par mois d&apos;ancienneté (max +15).
-                        <br /><br />
-                        Un score élevé reflète un bon historique de collectes et peu de retards de remboursement.
-                      </>
-                    }
-                  />
-                </dt>
-                <dd className="flex flex-wrap items-center gap-3">
-                  <Badge variant="info" className="text-base font-bold px-3 py-1">
-                    {score.score} / 100
-                  </Badge>
-                  <span className="text-sm text-gray-600 border-l border-gray-300 pl-3">
-                    Collectes validées : <strong>{score.details.nbCollectesValidees}</strong>
-                    {' · '}Échéances en retard : <strong>{score.details.nbEcheancesEnRetard}</strong>
-                    {' · '}Ancienneté : <strong>{score.details.moisAnciennete} mois</strong>
-                  </span>
-                </dd>
-              </div>
-            )}
-            <div><dt className="text-sm text-gray-500">Type pièce d&apos;identité</dt><dd className="text-gray-900">{client.typePieceIdentite === 'CNI' ? 'CNI' : client.typePieceIdentite === 'PASSEPORT' ? 'Passeport' : client.typePieceIdentite === 'PERMIS_CONDUIRE' ? 'Permis de conduire' : client.typePieceIdentite === 'CARTE_SEJOUR' ? 'Carte de séjour' : client.typePieceIdentite === 'AUTRE' ? 'Autre' : client.typePieceIdentite || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">N° pièce d&apos;identité</dt><dd className="text-gray-900">{client.numeroPieceIdentite || '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Date délivrance pièce</dt><dd className="text-gray-900">{client.dateDelivrancePiece ? format(new Date(client.dateDelivrancePiece), 'dd MMM yyyy', { locale: fr }) : '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Date expiration pièce</dt><dd className="text-gray-900">{client.dateExpirationPiece ? format(new Date(client.dateExpirationPiece), 'dd MMM yyyy', { locale: fr }) : '—'}</dd></div>
-            <div><dt className="text-sm text-gray-500">Lieu délivrance pièce</dt><dd className="text-gray-900">{client.lieuDelivrancePiece || '—'}</dd></div>
-            <div className="md:col-span-2"><dt className="text-sm text-gray-500">Personne de référence</dt>
-              <dd className="text-gray-900">
-                {client.nomPersonneReference || client.telephonePersonneReference || client.relationPersonneReference ? (
-                  <span>{client.nomPersonneReference || '—'}{client.telephonePersonneReference && ` • ${client.telephonePersonneReference}`}{client.relationPersonneReference && ` • ${client.relationPersonneReference}`}</span>
-                ) : '—'}
-              </dd>
-            </div>
-            {client.adressePersonneReference && (
-              <div className="md:col-span-2"><dt className="text-sm text-gray-500">Adresse personne de référence</dt><dd className="text-gray-900">{client.adressePersonneReference}</dd></div>
-            )}
-            {client.notes && (
-              <div className="md:col-span-2"><dt className="text-sm text-gray-500">Notes</dt><dd className="text-gray-900 whitespace-pre-wrap">{client.notes}</dd></div>
-            )}
-            <div><dt className="text-sm text-gray-500">Créé le</dt><dd className="text-gray-900">{format(new Date(client.createdAt), "dd MMM yyyy à HH:mm", { locale: fr })}</dd></div>
-          </dl>
+
+            <InfoSection title="Pièce d’identité">
+              <InfoField label="Type de pièce">
+                {client.typePieceIdentite === 'CNI' ? 'CNI' : client.typePieceIdentite === 'PASSEPORT' ? 'Passeport' : client.typePieceIdentite === 'PERMIS_CONDUIRE' ? 'Permis de conduire' : client.typePieceIdentite === 'CARTE_SEJOUR' ? 'Carte de séjour' : client.typePieceIdentite === 'AUTRE' ? 'Autre' : client.typePieceIdentite || '—'}
+              </InfoField>
+              <InfoField label="N° de pièce">{client.numeroPieceIdentite || '—'}</InfoField>
+              <InfoField label="Lieu de délivrance">{client.lieuDelivrancePiece || '—'}</InfoField>
+              <InfoField label="Date de délivrance">
+                {client.dateDelivrancePiece ? format(new Date(client.dateDelivrancePiece), 'dd MMM yyyy', { locale: fr }) : '—'}
+              </InfoField>
+              <InfoField label="Date d’expiration">
+                {client.dateExpirationPiece ? format(new Date(client.dateExpirationPiece), 'dd MMM yyyy', { locale: fr }) : '—'}
+              </InfoField>
+            </InfoSection>
+
+            <InfoSection title="Référence et suivi">
+              <InfoField label="Personne de référence" span>
+                {client.nomPersonneReference || client.telephonePersonneReference || client.relationPersonneReference
+                  ? `${client.nomPersonneReference || '—'}${client.telephonePersonneReference ? ` • ${client.telephonePersonneReference}` : ''}${client.relationPersonneReference ? ` • ${client.relationPersonneReference}` : ''}`
+                  : '—'}
+              </InfoField>
+              {client.adressePersonneReference && (
+                <InfoField label="Adresse de la personne de référence" span>
+                  {client.adressePersonneReference}
+                </InfoField>
+              )}
+              {client.notes && (
+                <InfoField label="Notes" span>
+                  <span className="whitespace-pre-wrap">{client.notes}</span>
+                </InfoField>
+              )}
+              <InfoField label="Créé le">
+                {format(new Date(client.createdAt), "dd MMM yyyy à HH:mm", { locale: fr })}
+              </InfoField>
+            </InfoSection>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

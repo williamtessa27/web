@@ -50,6 +50,11 @@ export interface Entreprise {
   nbrEmployes?: number;
   dateCreationEntreprise?: string;
   logoUrl?: string;
+  hasCoreBanking?: boolean;
+  coreBankingName?: string | null;
+  migrationAssistanceRequested?: boolean;
+  declaredAgencyCount?: number | null;
+  onboardingCompletedAt?: string | null;
   /** Sprint 12 — Branding white-label */
   couleurPrimaire?: string;
   couleurSecondaire?: string;
@@ -674,11 +679,11 @@ export interface RegisterResponse {
 }
 
 export interface CompleteEntrepriseRequest {
-  nom: string;
-  telephone: string;
-  ville: string;
-  pays: string;
-  secteurActivite: string;
+  nom?: string;
+  telephone?: string;
+  ville?: string;
+  pays?: string;
+  secteurActivite?: string;
   emailContact?: string;
   description?: string;
   adresse?: string;
@@ -690,6 +695,11 @@ export interface CompleteEntrepriseRequest {
   dateCreationEntreprise?: string;
   devise?: string;
   tauxCommissionDefaut?: number;
+  logoUrl?: string;
+  hasCoreBanking?: boolean;
+  coreBankingName?: string;
+  migrationAssistanceRequested?: boolean;
+  declaredAgencyCount?: number;
 }
 
 /** Données modifiables depuis la page Paramètres (profil + paramétrage métier). */

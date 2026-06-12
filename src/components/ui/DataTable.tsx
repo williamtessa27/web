@@ -59,6 +59,8 @@ export interface DataTableProps<T> {
   onRefresh?: () => void;
   /** Texte du tooltip du bouton actualiser */
   refreshLabel?: string;
+  /** Actions personnalisées affichées après Actualiser et avant Exporter */
+  toolbarActions?: React.ReactNode;
   /** Callback pour le bouton export (affiché uniquement si défini) */
   onExport?: () => void;
   /** Texte du tooltip du bouton export */
@@ -84,6 +86,7 @@ export default function DataTable<T extends object>({
   emptyAction,
   onRefresh,
   refreshLabel = 'Actualiser',
+  toolbarActions,
   onExport,
   exportLabel = 'Exporter',
   storageKey,
@@ -244,6 +247,7 @@ export default function DataTable<T extends object>({
               <span className="hidden sm:inline">Actualiser</span>
             </button>
           )}
+          {toolbarActions}
           {onExport && (
             <button
               type="button"

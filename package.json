@@ -11,6 +11,7 @@
     "pm2:restart": "pm2 restart collect-web --env production"
   },
   "dependencies": {
+    "@countrystatecity/countries-browser": "^1.0.2",
     "@headlessui/react": "^2.2.9",
     "@hookform/resolvers": "^3.9.0",
     "axios": "^1.13.2",

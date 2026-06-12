@@ -23,28 +23,28 @@ export default function Sheet({ open, onClose, title, children, size = 'md' }: S
       <Dialog onClose={onClose} className="relative z-50">
         <TransitionChild
           as={Fragment}
-          enter="ease-out duration-300"
+          enter="ease-out duration-100"
           enterFrom="opacity-0"
           enterTo="opacity-100"
-          leave="ease-in duration-200"
+          leave="ease-in duration-75"
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black/35" />
         </TransitionChild>
 
         <div className="fixed inset-0 flex justify-end">
           <TransitionChild
             as={Fragment}
-            enter="ease-out duration-300"
+            enter="ease-out duration-150"
             enterFrom="translate-x-full"
             enterTo="translate-x-0"
-            leave="ease-in duration-200"
+            leave="ease-in duration-100"
             leaveFrom="translate-x-0"
             leaveTo="translate-x-full"
           >
             <DialogPanel
-              className={`w-full ${sizeMap[size]} h-full bg-white shadow-xl flex flex-col overflow-hidden`}
+              className={`w-full ${sizeMap[size]} h-full bg-white shadow-xl flex flex-col overflow-hidden transform-gpu will-change-transform`}
             >
               {title != null && (
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">

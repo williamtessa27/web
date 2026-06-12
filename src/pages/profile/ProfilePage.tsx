@@ -1,5 +1,6 @@
 import { useForm, Controller } from 'react-hook-form';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -32,9 +33,17 @@ type ProfileForm = Pick<
   'nom' | 'prenom' | 'telephone' | 'adresse' | 'ville' | 'pays'
 > & { email?: string };
 
+type PasswordForm = {
+  ancienMotDePasse: string;
+  nouveauMotDePasse: string;
+  confirmationMotDePasse: string;
+};
+
 export default function ProfilePage() {
-  const { user, setUser } = useAuthStore();
+  const navigate = useNavigate();
+  const { user, entreprise, setUser, logout } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [sessions, setSessions] = useState<SessionConnexion[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
@@ -45,6 +54,20 @@ export default function ProfilePage() {
     reset,
     formState: { errors },
   } = useForm<ProfileForm>();
+
+  const {
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    reset: resetPassword,
+    watch: watchPassword,
+    formState: { errors: passwordErrors },
+  } = useForm<PasswordForm>({
+    defaultValues: {
+      ancienMotDePasse: '',
+      nouveauMotDePasse: '',
+      confirmationMotDePasse: '',
+    },
+  });
 
   useEffect(() => {
     if (user) {
@@ -104,9 +127,27 @@ export default function ProfilePage() {
     }
   };
 
+  const onChangePassword = async (data: PasswordForm) => {
+    setIsChangingPassword(true);
+    try {
+      await authApi.changePassword(data);
+      resetPassword();
+      toast.success('Mot de passe modifié. Veuillez vous reconnecter.');
+      logout();
+      navigate('/login', { replace: true });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Erreur lors du changement du mot de passe';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   if (!user) return null;
 
   const initials = [user.nom?.charAt(0), user.prenom?.charAt(0)].filter(Boolean).join('').toUpperCase() || '?';
+  const passwordMinLength = entreprise?.motDePasseLongueurMin ?? 8;
+  const passwordRequiresSpecial = entreprise?.motDePasseExigerSpecial ?? false;
 
   return (
     <div className="space-y-8 max-w-2xl mx-auto">
@@ -230,6 +271,80 @@ export default function ProfilePage() {
           </Button>
         </div>
       </form>
+
+      {user.authMode !== 'CENTRAL' && <Card>
+        <h2 className="text-base font-semibold text-gray-900 mb-2">
+          Sécurité
+        </h2>
+        <p className="text-sm text-gray-500 mb-5">
+          Après modification, toutes vos sessions seront déconnectées et vous devrez vous reconnecter.
+        </p>
+        <form onSubmit={handlePasswordSubmit(onChangePassword)} className="space-y-4">
+          <Input
+            label="Mot de passe actuel"
+            type="password"
+            passwordToggle
+            autoComplete="current-password"
+            error={passwordErrors.ancienMotDePasse?.message}
+            {...registerPassword('ancienMotDePasse', {
+              required: 'Le mot de passe actuel est requis',
+            })}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label="Nouveau mot de passe"
+              type="password"
+              passwordToggle
+              autoComplete="new-password"
+              error={passwordErrors.nouveauMotDePasse?.message}
+              {...registerPassword('nouveauMotDePasse', {
+                required: 'Le nouveau mot de passe est requis',
+                minLength: {
+                  value: passwordMinLength,
+                  message: `Minimum ${passwordMinLength} caractères`,
+                },
+                validate: (value) => {
+                  if (!/[A-Z]/.test(value)) return 'Ajoutez au moins une majuscule';
+                  if (!/[a-z]/.test(value)) return 'Ajoutez au moins une minuscule';
+                  if ((entreprise?.motDePasseExigerChiffre ?? true) && !/\d/.test(value)) {
+                    return 'Ajoutez au moins un chiffre';
+                  }
+                  if (passwordRequiresSpecial && !/[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'`~]/.test(value)) {
+                    return 'Ajoutez au moins un caractère spécial';
+                  }
+                  if (value === watchPassword('ancienMotDePasse')) {
+                    return 'Le nouveau mot de passe doit être différent';
+                  }
+                  return true;
+                },
+              })}
+            />
+            <Input
+              label="Confirmer le nouveau mot de passe"
+              type="password"
+              passwordToggle
+              autoComplete="new-password"
+              error={passwordErrors.confirmationMotDePasse?.message}
+              {...registerPassword('confirmationMotDePasse', {
+                required: 'La confirmation est requise',
+                validate: (value) =>
+                  value === watchPassword('nouveauMotDePasse')
+                    || 'Les mots de passe ne correspondent pas',
+              })}
+            />
+          </div>
+          <p className="text-xs text-gray-500">
+            Minimum {passwordMinLength} caractères, avec une majuscule, une minuscule
+            {(entreprise?.motDePasseExigerChiffre ?? true) ? ', un chiffre' : ''}
+            {passwordRequiresSpecial ? ' et un caractère spécial' : ''}.
+          </p>
+          <div className="flex justify-end">
+            <Button type="submit" isLoading={isChangingPassword}>
+              Modifier le mot de passe
+            </Button>
+          </div>
+        </form>
+      </Card>}
 
       {/* Mes connexions (E8.2.3) */}
       <Card>

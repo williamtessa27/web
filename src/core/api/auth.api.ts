@@ -31,6 +31,13 @@ export const authApi = {
 
   me: () => apiClient.get<Utilisateur>('/auth/me').then((r) => r.data),
 
+  changePassword: (data: {
+    ancienMotDePasse: string;
+    nouveauMotDePasse: string;
+    confirmationMotDePasse: string;
+  }) =>
+    apiClient.post<{ ok: boolean }>('/auth/change-password', data).then((r) => r.data),
+
   /** Liste des connexions récentes de l'utilisateur connecté (30 derniers jours). */
   sessions: () =>
     apiClient.get<SessionConnexion[]>('/auth/sessions').then((r) => r.data),

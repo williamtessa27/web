@@ -5,6 +5,7 @@ import { useAuthStore } from '@/core/store/auth.store';
 import { entrepriseApi, authApi, type SessionAdminItem } from '@/core/api';
 import { RoleUtilisateur } from '@/types';
 import Button from '@/components/ui/Button';
+import CountryCitySelector from '@/components/ui/CountryCitySelector';
 import Input from '@/components/ui/Input';
 import PhoneInput from '@/components/ui/PhoneInput';
 import Select from '@/components/ui/Select';
@@ -102,6 +103,8 @@ export default function ParametresPage() {
       motDePasseHistoriqueCount: undefined as number | null | undefined,
     },
   });
+  const selectedCountry = watch('pays') ?? '';
+  const selectedCity = watch('ville') ?? '';
 
   useEffect(() => {
     const id = storeEntreprise?.id;
@@ -401,18 +404,18 @@ export default function ParametresPage() {
                 error={errors.adresse?.message}
                 {...register('adresse')}
               />
-              <Input
-                label="Ville *"
-                placeholder="Douala"
-                error={errors.ville?.message}
-                {...register('ville', { required: 'La ville est requise' })}
+              <CountryCitySelector
+                className="md:col-span-2"
+                country={selectedCountry}
+                city={selectedCity}
+                onCountryChange={(pays) => setValue('pays', pays, { shouldDirty: true, shouldValidate: true })}
+                onCityChange={(ville) => setValue('ville', ville, { shouldDirty: true, shouldValidate: true })}
+                countryError={errors.pays?.message}
+                cityError={errors.ville?.message}
+                required
               />
-              <Input
-                label="Pays *"
-                placeholder="Cameroun"
-                error={errors.pays?.message}
-                {...register('pays', { required: 'Le pays est requis' })}
-              />
+              <input type="hidden" {...register('pays', { required: 'Le pays est requis' })} />
+              <input type="hidden" {...register('ville', { required: 'La ville est requise' })} />
               <Input
                 label="Code postal"
                 placeholder="BP 1234"

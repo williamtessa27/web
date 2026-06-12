@@ -10,6 +10,8 @@ import {
   HiOutlineUserGroup,
   HiOutlineUsers,
   HiOutlineEye,
+  HiOutlineArrowPath,
+  HiOutlineEyeSlash,
 } from 'react-icons/hi2';
 import { AppRoutes } from '@/config/routes.config';
 import { utilisateurApi, agenceApi } from '@/core/api';
@@ -79,6 +81,8 @@ export default function UtilisateursPage() {
   const [showCreateUtilisateur, setShowCreateUtilisateur] = useState(false);
   const [agences, setAgences] = useState<Agence[]>([]);
   const [isSubmittingUtilisateur, setIsSubmittingUtilisateur] = useState(false);
+  const [isGeneratingPassword, setIsGeneratingPassword] = useState(false);
+  const [showGeneratedPassword, setShowGeneratedPassword] = useState(true);
   const [togglingActifId, setTogglingActifId] = useState<string | null>(null);
   const [confirmDesactiverUser, setConfirmDesactiverUser] = useState<Utilisateur | null>(null);
 
@@ -87,6 +91,7 @@ export default function UtilisateursPage() {
     control: controlUtilisateur,
     handleSubmit: handleSubmitUtilisateur,
     reset: resetUtilisateur,
+    setValue: setValueUtilisateur,
     watch: watchUtilisateur,
     formState: { errors: errorsUtilisateur },
   } = useForm<CreateUtilisateurRequest>({
@@ -100,11 +105,27 @@ export default function UtilisateursPage() {
 
   useEffect(() => {
     loadStats();
+    agenceApi.list(true).then(setAgences).catch(() => setAgences([]));
   }, []);
 
   useEffect(() => {
-    if (showCreateUtilisateur) agenceApi.list(true).then(setAgences).catch(() => setAgences([]));
+    if (showCreateUtilisateur) {
+      generateUtilisateurPassword();
+      setShowGeneratedPassword(true);
+    }
   }, [showCreateUtilisateur]);
+
+  const generateUtilisateurPassword = async () => {
+    setIsGeneratingPassword(true);
+    try {
+      const result = await utilisateurApi.generatePassword();
+      setValueUtilisateur('motDePasse', result.motDePasse, { shouldValidate: true, shouldDirty: true });
+    } catch (err: any) {
+      toast.error(err?.message || 'Erreur lors de la génération du mot de passe');
+    } finally {
+      setIsGeneratingPassword(false);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -508,25 +529,56 @@ export default function UtilisateursPage() {
               )}
               <p className="text-xs text-gray-500 mt-1">Obligatoire pour le chef d&apos;agence et le caissier. Modifiable ensuite uniquement par l&apos;admin.</p>
             </div>
-            <Input
-              label="Mot de passe *"
-              type="password"
-              placeholder="Min. 8 caractères, 1 maj, 1 min, 1 chiffre"
-              passwordToggle
-              error={errorsUtilisateur.motDePasse?.message}
-              {...registerUtilisateur('motDePasse', {
-                required: 'Le mot de passe est requis',
-                minLength: { value: 8, message: 'Minimum 8 caractères' },
-                pattern: {
-                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                  message: 'Au moins une majuscule, une minuscule et un chiffre',
-                },
-              })}
-            />
+            <div className="w-full">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <label htmlFor="create-user-password" className="block text-sm font-medium text-gray-700">
+                  Mot de passe *
+                </label>
+                <button
+                  type="button"
+                  onClick={generateUtilisateurPassword}
+                  disabled={isGeneratingPassword}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                  title="Générer un nouveau mot de passe"
+                >
+                  <HiOutlineArrowPath className={`h-4 w-4 ${isGeneratingPassword ? 'animate-spin' : ''}`} />
+                  Actualiser
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  id="create-user-password"
+                  type={showGeneratedPassword ? 'text' : 'password'}
+                  placeholder={isGeneratingPassword ? 'Génération en cours…' : 'Min. 8 caractères, 1 maj, 1 min, 1 chiffre'}
+                  className={`w-full rounded-lg border px-3 py-2 pr-11 text-sm transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                    errorsUtilisateur.motDePasse ? 'border-error-200 focus:ring-error-400 focus:border-error-400' : 'border-gray-300'
+                  }`}
+                  {...registerUtilisateur('motDePasse', {
+                    required: 'Le mot de passe est requis',
+                    minLength: { value: 8, message: 'Minimum 8 caractères' },
+                    pattern: {
+                      value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+                      message: 'Au moins une majuscule, une minuscule et un chiffre',
+                    },
+                  })}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGeneratedPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  aria-label={showGeneratedPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showGeneratedPassword ? <HiOutlineEyeSlash className="h-5 w-5" /> : <HiOutlineEye className="h-5 w-5" />}
+                </button>
+              </div>
+              {errorsUtilisateur.motDePasse?.message && (
+                <p className="mt-1 text-xs text-error-500">{errorsUtilisateur.motDePasse.message}</p>
+              )}
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setShowCreateUtilisateur(false)}>Annuler</Button>
-            <Button type="submit" isLoading={isSubmittingUtilisateur}>Créer l&apos;utilisateur</Button>
+            <Button type="submit" isLoading={isSubmittingUtilisateur} disabled={isGeneratingPassword}>Créer l&apos;utilisateur</Button>
           </div>
         </form>
       </Modal>

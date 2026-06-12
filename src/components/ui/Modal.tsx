@@ -10,7 +10,7 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-const sizeMap = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl' };
+const sizeMap = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-3xl' };
 
 export default function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
   return (
@@ -18,27 +18,27 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
       <Dialog onClose={onClose} className="relative z-50">
         <TransitionChild
           as={Fragment}
-          enter="ease-out duration-200"
+          enter="ease-out duration-100"
           enterFrom="opacity-0"
           enterTo="opacity-100"
-          leave="ease-in duration-150"
+          leave="ease-in duration-75"
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black/35" />
         </TransitionChild>
 
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <TransitionChild
             as={Fragment}
-            enter="ease-out duration-200"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
-            leave="ease-in duration-150"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
+            enter="ease-out duration-100"
+            enterFrom="opacity-0 translate-y-1"
+            enterTo="opacity-100 translate-y-0"
+            leave="ease-in duration-75"
+            leaveFrom="opacity-100 translate-y-0"
+            leaveTo="opacity-0 translate-y-1"
           >
-            <DialogPanel className={`w-full ${sizeMap[size]} bg-white rounded-2xl shadow-xl`}>
+            <DialogPanel className={`w-full ${sizeMap[size]} bg-white rounded-2xl shadow-xl transform-gpu will-change-transform`}>
               {title && (
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                   <DialogTitle className="text-lg font-semibold text-gray-900">{title}</DialogTitle>

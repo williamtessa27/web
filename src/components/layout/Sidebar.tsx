@@ -25,6 +25,7 @@ import {
   HiOutlineShieldCheck,
   HiOutlineChartBar,
   HiOutlineBookOpen,
+  HiOutlineArrowsRightLeft,
 } from 'react-icons/hi2';
 import { PanelRightOpen, PanelLeftOpen } from 'lucide-react';
 import { useAuthStore } from '@/core/store/auth.store';
@@ -83,6 +84,7 @@ function getSidebarGroupsDefault(): Record<string, boolean> {
     credit: true,
     financeCaisse: true,
     clotureControle: true,
+    importExport: true,
     parametres: true,
     plateforme: true,
   };
@@ -109,6 +111,8 @@ export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCo
   const role = user?.role;
   const canCreateDepotAgence = useHasPermission('canCreateDepotAgence');
   const canCloseCaisse = useHasPermission('canCloseCaisse');
+  const canCreateClient = useHasPermission('canCreateClient');
+  const canExportReport = useHasPermission('canExportReport');
   const logoUrl = entreprise?.logoUrl;
 
   const [groupsOpen, setGroupsOpen] = useState<Record<string, boolean>>(getSidebarGroupsDefault);
@@ -254,6 +258,17 @@ export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCo
   }
   if (clotureItems.length > 0) {
     groups.push({ id: 'clotureControle', labelKey: 'sidebar.groups.clotureControle', items: clotureItems });
+  }
+
+  // Import & Export
+  if (canCreateClient || canExportReport) {
+    groups.push({
+      id: 'importExport',
+      labelKey: 'sidebar.groups.importExport',
+      items: [
+        { label: t('sidebar.clients'), to: AppRoutes.IMPORT_EXPORT, icon: <HiOutlineArrowsRightLeft className="h-5 w-5" /> },
+      ],
+    });
   }
 
   // Paramètres
@@ -425,7 +440,7 @@ export default function Sidebar({ mobile, onClose, collapsed = false, onToggleCo
                     'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900',
                   )}
                 >
-                  <span className="truncate">{t(group.labelKey)}</span>
+                  <span className="truncate">{t(group.labelKey, group.id === 'importExport' ? 'Import & Export' : group.labelKey)}</span>
                   <span className="shrink-0 text-gray-400">
                     {isOpen ? (
                       <HiOutlineChevronDown className="h-4 w-4" />

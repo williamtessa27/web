@@ -62,6 +62,12 @@ const ENTITY_LABELS: Record<string, string> = {
 /** E6.6.2 — Types d'entités pour la vue « Audit financier ». */
 const AUDIT_FINANCIER_ENTITY_TYPES = 'CLOTURE,COLLECTE,DEMANDE_RETRAIT,DOSSIER_CREDIT,DEPOT_AGENCE';
 
+const HIDDEN_AUDIT_STATE_FIELDS = new Set([
+  'idclient',
+  'idecheance',
+  'iddossiercredit',
+]);
+
 export default function AuditPage() {
   const [data, setData] = useState<PaginatedResponse<AuditLog> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,7 +139,12 @@ export default function AuditPage() {
 
   const formatState = (state: Record<string, unknown> | null) => {
     if (!state || Object.keys(state).length === 0) return null;
-    return Object.entries(state).map(([key, value]) => {
+    const visibleEntries = Object.entries(state).filter(
+      ([key]) => !HIDDEN_AUDIT_STATE_FIELDS.has(key.toLowerCase())
+    );
+    if (visibleEntries.length === 0) return null;
+
+    return visibleEntries.map(([key, value]) => {
       let display = value;
       if (value != null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
         display = JSON.stringify(value);
@@ -152,6 +163,8 @@ export default function AuditPage() {
     () => (data?.data?.length ? groupLogsByDay(data.data) : []),
     [data?.data]
   );
+  const oldStateDetails = selectedLog ? formatState(selectedLog.oldState) : null;
+  const newStateDetails = selectedLog ? formatState(selectedLog.newState) : null;
 
   if (loading && !data) return <PageLoader />;
 
@@ -396,14 +409,13 @@ export default function AuditPage() {
               </div>
             </dl>
 
-            {(selectedLog.oldState && Object.keys(selectedLog.oldState).length > 0) ||
-            (selectedLog.newState && Object.keys(selectedLog.newState).length > 0) ? (
+            {oldStateDetails?.length || newStateDetails?.length ? (
               <div className="space-y-4">
-                {selectedLog.oldState && Object.keys(selectedLog.oldState).length > 0 && (
+                {!!oldStateDetails?.length && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Ancien état</h3>
                     <ul className="rounded-lg border border-gray-200 divide-y divide-gray-100 bg-gray-50/50 overflow-hidden">
-                      {formatState(selectedLog.oldState)?.map(({ key, value }) => (
+                      {oldStateDetails.map(({ key, value }) => (
                         <li key={key} className="px-3 py-2 flex justify-between gap-2 text-sm">
                           <span className="text-gray-600 font-medium shrink-0">{key}</span>
                           <span className="text-gray-900 text-right break-all">{String(value)}</span>
@@ -412,11 +424,11 @@ export default function AuditPage() {
                     </ul>
                   </div>
                 )}
-                {selectedLog.newState && Object.keys(selectedLog.newState).length > 0 && (
+                {!!newStateDetails?.length && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Nouvel état</h3>
                     <ul className="rounded-lg border border-gray-200 divide-y divide-gray-100 bg-white overflow-hidden">
-                      {formatState(selectedLog.newState)?.map(({ key, value }) => (
+                      {newStateDetails.map(({ key, value }) => (
                         <li key={key} className="px-3 py-2 flex justify-between gap-2 text-sm">
                           <span className="text-gray-600 font-medium shrink-0">{key}</span>
                           <span className="text-gray-900 text-right break-all">{String(value)}</span>

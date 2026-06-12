@@ -145,6 +145,8 @@ export const utilisateurApi = {
     apiClient.post<Utilisateur>('/utilisateurs/gestionnaire', data).then((r) => r.data),
   createCollecteur: (data: CreateCollecteurRequest) =>
     apiClient.post<{ utilisateur: Utilisateur; collecteur: Collecteur }>('/utilisateurs/collecteur', data).then((r) => r.data),
+  generatePassword: () =>
+    apiClient.get<{ motDePasse: string }>('/utilisateurs/generated-password').then((r) => r.data),
   update: (id: string, data: Record<string, unknown>) =>
     apiClient.patch<Utilisateur>(`/utilisateurs/${id}`, data).then((r) => r.data),
   delete: (id: string) => apiClient.delete(`/utilisateurs/${id}`),
@@ -243,6 +245,85 @@ export const clientApi = {
   removeAdhesion: (id: string, typeModule: 'COLLECTE' | 'EPARGNE' | 'CREDIT') =>
     apiClient.delete<Client>(`/clients/${id}/adhesions/${typeModule}`).then((r) => r.data),
 };
+
+export interface ImportClientFailure {
+  rowNumber: number;
+  identifier?: string;
+  errors: string[];
+  values: Record<string, string>;
+}
+
+export interface ImportClientSuccess {
+  rowNumber: number;
+  id: string;
+  codeClient: string;
+  nom: string;
+  prenom?: string | null;
+  telephone?: string | null;
+  email?: string | null;
+}
+
+export interface ImportClientsResult {
+  totalRows: number;
+  imported: number;
+  failed: number;
+  successes: ImportClientSuccess[];
+  failures: ImportClientFailure[];
+}
+
+export interface ImportClientsOptions {
+  idAgence?: string;
+  idCollecteur?: string;
+  idZone?: string;
+}
+
+export async function importClientsFile(file: File, options: ImportClientsOptions = {}): Promise<ImportClientsResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  Object.entries(options).forEach(([key, value]) => {
+    if (value) formData.append(key, value);
+  });
+  return apiClient
+    .post<ImportClientsResult>('/clients/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    })
+    .then((r) => r.data);
+}
+
+export async function downloadClientsImportTemplate(): Promise<string> {
+  try {
+    const res = await apiClient.get<Blob>('/clients/import-template', { responseType: 'blob' });
+    const blob = res.data;
+    const disposition = res.headers['content-disposition'];
+    const filename =
+      (typeof disposition === 'string' && /filename="?([^";\n]+)"?/.exec(disposition)?.[1]) ||
+      'modele-import-clients.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    return filename;
+  } catch (err: unknown) {
+    const ax = err as { response?: { data?: Blob }; message?: string };
+    if (ax.response?.data instanceof Blob) {
+      const text = await ax.response.data.text();
+      try {
+        const json = JSON.parse(text) as { message?: string | string[] };
+        const message = Array.isArray(json.message) ? json.message[0] : json.message;
+        throw new Error(message || 'Erreur lors du téléchargement du modèle');
+      } catch (parseError) {
+        if (parseError instanceof Error && parseError.message !== 'Erreur lors du téléchargement du modèle') {
+          throw parseError;
+        }
+        throw new Error(text || ax.message || 'Erreur lors du téléchargement du modèle');
+      }
+    }
+    throw err;
+  }
+}
 
 /** Paramètres pour l'export des clients (alignés sur le backend). */
 export interface ExportClientsParams {

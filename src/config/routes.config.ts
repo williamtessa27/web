@@ -44,6 +44,8 @@ export const AppRoutes = {
   NOTIFICATIONS: '/notifications',
   // ─── Audit / Historique ─────────────────────────
   AUDIT: '/audit',
+  // ─── Import & Export ────────────────────────────
+  IMPORT_EXPORT: '/imports-exports',
   // ─── Zones ──────────────────────────────────────
   ZONES: '/zones',
   // ─── Agences (Sprint 5) ─────────────────────────
